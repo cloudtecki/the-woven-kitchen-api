@@ -1,82 +1,37 @@
 # File Name
-
-`index.ts` (commands barrel)
+`index.js` (placeholder)
 
 # File Path
-
-`src/application/commands/index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\application\commands`
 
 # Purpose
-
-Barrel module that aggregates and re-exports all user command classes from the application-layer command folder. It is consumed by the application root barrel (`src/application/index.ts`) and provides a single import entry point for the CQRS write-side message types.
+Placeholder documentation for the `src/application/commands` directory. Empty scaffolding for future CQRS command definitions (write/intent objects such as create/update/delete). Currently contains no code (only a `.gitkeep` placeholder).
 
 # Responsibilities
-
-- Re-export `CreateUserCommand`, `UpdateUserCommand`, `DeleteUserCommand` from their concrete file modules.
-- Keep consumers decoupled from concrete file paths within the `commands` folder.
-- Provide the write-side vocabulary of the CQRS application layer (create, update, delete).
-
-# Dependencies
-
-| Import | Kind | Description |
-| ------ | ---- | ----------- |
-| `./create-user.command` | relative module | Source of `CreateUserCommand`. Only the named export is referenced. |
-| `./update-user.command` | relative module | Source of `UpdateUserCommand`. Only the named export is referenced. |
-| `./delete-user.command` | relative module | Source of `DeleteUserCommand`. Only the named export is referenced. |
-
-The barrel itself imports no runtime libraries.
+- Reserved for future CQRS command classes.
+- Currently empty; nothing to document.
 
 # Exports
-
-- `CreateUserCommand` — from `./create-user.command`
-- `UpdateUserCommand` — from `./update-user.command`
-- `DeleteUserCommand` — from `./delete-user.command`
+- None (no source files present).
 
 # Internal Functions
-
-None. The file contains only `export { ... } from ...` statements.
+- None.
 
 # Execution Flow
-
-1. Module is imported (directly or via `src/application/index.ts`).
-2. TypeScript resolves each `export { X } from './file'` request against the corresponding module.
-3. The three command classes become available on the barrel's public namespace.
-4. No runtime instantiation occurs at import time.
+- No runtime flow; awaiting future implementation.
 
 # Related Files
-
-- `src/application/commands/create-user.command.ts` — the create command definition
-- `src/application/commands/update-user.command.ts` — the update command definition
-- `src/application/commands/delete-user.command.ts` — the delete command definition
-- `src/application/index.ts` — re-exports this barrel
-- `src/application/handlers/index.ts` — the matching handlers barrel (same import style)
+- `src/application/handlers` — future command handlers.
+- `src/application/dto` — future command DTOs.
 
 # Example Usage
-
-```ts
-// Consumer imports once from the commands barrel
-import { CreateUserCommand, UpdateUserCommand, DeleteUserCommand } from '../application/commands';
-
-export function toCreateCommand(input) {
-  return new CreateUserCommand(input.email, input.name, input.role);
-}
-```
+None yet — empty scaffolding.
 
 # Best Practices
-
-- Add every new command class to this barrel so the application root barrel stays complete.
-- Keep exports purely unidirectional (no re-importing back into the concrete command files).
-- Prefer named `export { X } from` over `export * from` when you want explicit control over the public surface.
-- Keep the barrel free of logic.
+- When implemented, model commands as plain data/intent objects representing a write operation.
 
 # Common Mistakes
-
-- Forgetting to register a newly created command here, causing seemingly random "not exported" errors at build/import time.
-- Introducing command files that import from the barrel itself, creating circular dependency chains.
-- Re-exporting internal helper types (non-command) from this barrel and polluting the public API.
+- Putting execution logic in the command instead of a handler.
 
 # Notes For Frontend Developers
-
-- Server-side only; you never touch this file.
-- The practical consequence for you: the REST routes mirror these three verbs — `POST` (create), `PATCH`/`PUT` (update), `DELETE` (delete) — and each maps to exactly one command here.
-- Error behavior you should code against: duplicates → 409 on create, missing resource → 404 on update/delete.
+- Internal to backend; no current API impact.

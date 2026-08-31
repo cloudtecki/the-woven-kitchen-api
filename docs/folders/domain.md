@@ -1,65 +1,70 @@
 # Folder: domain
 
-# Path: src/domain
+# Path: src/domain/
 
 # Purpose
 
-The **domain** layer is the innermost, most stable layer of the application. It contains the core business abstractions — entities, value objects, interfaces, and repository contracts — with **zero dependency on frameworks, databases, or HTTP**. It defines *what* a "User" is and *what* operations the system supports, but not how those operations are implemented. Everything else in the project depends on it; it depends on nothing.
+The **domain** layer is the intended innermost, most stable layer of the application. It will contain the core business abstractions — entities, value objects, and repository contracts — with **zero dependency on frameworks, databases, or HTTP**. It will define *what* the business objects are and *what* operations the system supports, but not how those operations are implemented.
 
-# Responsibilities
+**This folder is currently empty scaffolding.** All sub-folders contain only `.gitkeep` files. No entities, value objects, or repository interfaces have been implemented yet (Story 0.2). This document describes the *intended future purpose* of each sub-folder.
 
-- **Entities** (`entities/`): The core data shapes that flow through the app. Define `BaseEntity` (id, createdAt, updatedAt) and `User` (email, name, role, isActive).
-- **Value Objects** (`value-objects/`): Small, immutable domain concepts that need their own constrained type. `UserRole` is an enum (`ADMIN | MANAGER | STAFF`).
-- **Interfaces** (`interfaces/`): Generic contracts for the app's architectural building blocks (CQRS `Command` and `Query` interfaces).
-- **Repositories** (`repositories/`): Persistence *contracts* — interfaces like `IUserRepository` that define what data operations are available, with no implementation.
+# Responsibilities (Future)
 
-# Why this folder exists
+- **Entities** (`entities/`): The core data shapes that flow through the app. Will define a `BaseEntity` (id, createdAt, updatedAt) and domain-specific entities (e.g. `User`).
+- **Repositories** (`repositories/`): Persistence *contracts* — plain JavaScript interfaces/protocols that define what data operations are available, with no implementation. For example, `IUserRepository` would define `findById`, `findByEmail`, `create`, `update`, `delete`.
+- **Value Objects** (`value-objects/`): Small, immutable domain concepts that need their own constrained type. For example, `UserRole` would be an enum-like constant (`ADMIN | MANAGER | STAFF`).
 
-Clean Architecture places business rules at the center so they remain framework-agnostic and reusable. If the team later swaps Mongoose for another ODM, or PostgreSQL for Mongo, the `domain` layer does not change at all — only `infrastructure` does. For a Frontend Developer, this folder is the source of truth for what the system's data actually looks like (the `User` shape) and what the API is really capable of (the repository operations), independent of transport or storage details.
+# Why this folder exists (Future)
+
+Clean Architecture places business rules at the center so they remain framework-agnostic and reusable. If the team later swaps Mongoose for another ODM, or PostgreSQL for Mongo, the `domain` layer does not change at all — only `infrastructure` does. For a developer, this folder will be the source of truth for what the system's data actually looks like (the `User` shape) and what the API is really capable of (the repository operations), independent of transport or storage details.
 
 # What files belong here
+
+Currently (Story 0.2):
+
+```
+domain/
+├── entities/         # .gitkeep — EMPTY placeholder
+├── repositories/     # .gitkeep — EMPTY placeholder
+└── value-objects/    # .gitkeep — EMPTY placeholder
+```
+
+Future structure (example):
 
 ```
 domain/
 ├── entities/
-│   ├── base.entity.ts                       # BaseEntity interface (id, createdAt, updatedAt)
-│   ├── user.entity.ts                       # User interface extends BaseEntity
-│   └── index.ts
-├── interfaces/
-│   ├── cqrs.interface.ts                    # Command<T, TResult> / Query<TInput, TOutput>
-│   └── index.ts
+│   ├── base.entity.js                       # BaseEntity (id, createdAt, updatedAt)
+│   ├── user.entity.js                       # User entity
+│   └── index.js
 ├── repositories/
-│   ├── user-repository.interface.ts         # IUserRepository + data contracts
-│   └── index.ts
+│   ├── user-repository.interface.js         # IUserRepository contract
+│   └── index.js
 └── value-objects/
-    ├── user-role.ts                         # UserRole enum
-    └── index.ts
+    ├── user-role.js                         # UserRole enum
+    └── index.js
 ```
 
 # Which layer depends on it
 
-**Everything meaningful** depends on `domain` (inward dependency — the correct direction):
+**Everything meaningful** will depend on `domain` (inward dependency — the correct direction):
 
-- `application/handlers` — inject `IUserRepository`, use `User` and `UserRole`.
-- `api/` — uses `UserRole` (via DTOs/swagger) and the `User` shape in responses.
-- `infrastructure/repositories` — implements `IUserRepository` and maps between Mongo docs and `User` entities.
-- `infrastructure/di` — binds `IUserRepository` to its concrete implementation.
-- `shared` — `auth.middleware` uses `UserRole`.
+- `application/handlers` (future) — will use entities and call repository interfaces.
+- `api/` (future) — will reference entities and value objects indirectly via DTOs and responses.
+- `infrastructure/repositories` (future) — will implement the domain repository interfaces.
 
 # Which layer should NOT depend on it
 
-This folder is correct only if nothing it contains is violated by reverse imports. The rules:
-
-- `domain` must **not** import from `api`, `application`, or `infrastructure` — it has no imports from any app layer, so it stays pure.
-- `domain` must **not** import any framework library (no Express, no Mongoose, no Zod). Note that `domain/repositories` uses plain TypeScript interfaces and `domain/entities` uses plain interfaces/enums — no schema or model imports.
+- `domain` must **not** import from `api`, `application`, or `infrastructure`. It has no imports from any app layer — it stays pure.
+- `domain` must **not** import any framework library (no Express, no Mongoose, no Zod). The entities and interfaces use plain JavaScript objects and comments describing the shape (since there are no TypeScript interfaces).
 
 # Flow
 
 ```
-application/handlers/...    ── builds on ──►   domain/entities/User, UserRole
-        │                                            │
-        ▼                                            ▼
-domain/repositories/IUserRepository  ◄── implements ── infrastructure/repositories/UserRepository
+application/handlers (future)    ── builds on ──►   domain/entities
+        │
+        ▼
+domain/repositories/<interface>  ◄── implements ── infrastructure/repositories
         │
         ▼ (contracts on how data is accessed)
 infrastructure/database/models (Mongoose) — the actual implementation
@@ -69,24 +74,24 @@ The `domain` defines the contract; the `infrastructure` layer fulfills it.
 
 # Example
 
-`domain/repositories/user-repository.interface.ts` declares the storage contract the whole app is written against:
+Future example — `domain/repositories/user-repository.interface.js` would declare the storage contract the whole app is written against:
 
-```ts
-export interface IUserRepository {
-  findById(id: string): Promise<User | null>;
-  findByEmail(email: string): Promise<User | null>;
-  findAll(page?: number, limit?: number): Promise<FindAllResult>;
-  create(data: CreateUserData): Promise<User>;
-  update(id: string, data: UpdateUserData): Promise<User | null>;
-  delete(id: string): Promise<boolean>;
-  count(): Promise<number>;
-}
+```js
+/**
+ * @typedef {Object} IUserRepository
+ * @property {(id: string) => Promise<User|null>} findById
+ * @property {(email: string) => Promise<User|null>} findByEmail
+ * @property {(page?: number, limit?: number) => Promise<{data: User[], total: number}>} findAll
+ * @property {(data: CreateUserData) => Promise<User>} create
+ * @property {(id: string, data: UpdateUserData) => Promise<User|null>} update
+ * @property {(id: string) => Promise<boolean>} delete
+ */
 ```
 
-`infrastructure/repositories/user.repository.ts` provides the Mongoose-backed implementation of that exact interface. Handlers only ever talk to the interface — they never see Mongo.
+`infrastructure/repositories/user.repository.js` would provide the Mongoose-backed implementation. Handlers will only ever talk to the interface — they never see Mongo.
 
 # Related Folders
 
-- `docs\folders\application.md` — the use cases that consume these entities/interfaces.
-- `docs\folders\infrastructure.md` — the `UserRepository` that implements `IUserRepository`.
-- `docs\folders\shared.md` — commonly shares `UserRole` (e.g. in `auth.middleware`).
+- `docs/folders/application.md` — the use cases that will consume these entities/interfaces.
+- `docs/folders/infrastructure.md` — the repository implementations that will fulfill these contracts.
+- `docs/folders/shared.md` — value objects like `UserRole` may be referenced by shared utilities.

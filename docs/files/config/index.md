@@ -1,89 +1,62 @@
 # File Name
-index.ts (config)
+`index.js`
 
 # File Path
-`D:\real-time-project\twk\backend-twk-admin\src\config\index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\config\index.js`
 
 # Purpose
-Centralized, validated environment configuration module. It loads environment variables with `dotenv`, defines a Zod schema that enforces types and required values, parses `process.env` against that schema, and exports typed, camelCase configuration plus derived development/production flags. Any invalid or missing configuration aborts the process at startup, guaranteeing the rest of the application runs against a validated config shape.
+Loads and validates environment configuration using `dotenv` and a Zod schema. It exports a normalized `config` object plus an `isProd` boolean. Plain JavaScript (CommonJS — `require` / `module.exports`).
 
 # Responsibilities
 - Load `.env` variables into `process.env` via `dotenv.config()`.
-- Define a Zod schema (`configSchema`) describing every expected environment variable with defaults, coercions, enums, and validation rules.
-- Safely parse `process.env` with `configSchema.safeParse(...)`.
-- On validation failure, print each issue clearly (path + message) and exit the process with code 1.
-- Export a typed `config` object with normalized camelCase keys for `port`, `nodeEnv`, `mongoUri`, `dbName`, `jwtSecret`, `jwtExpiresIn`, `apiPrefix`, and `logLevel`.
-- Export boolean helpers `isDev` and `isProd`.
-
-# Dependencies
-- `dotenv` (default import): Loads environment variables from a `.env` file (typically at project root) into `process.env`.
-- `zod` (named import `z`): A schema declaration/validation library. `z.object`, `z.coerce.number`, `z.enum`, `z.string` are used to define and validate the config schema.
+- Define a Zod `configSchema` describing required/optional environment variables and their defaults.
+- Validate `process.env` against the schema with `safeParse`.
+- On validation failure, print the issues and exit the process with code 1.
+- Expose a camelCased `config` object and an `isProd` helper.
 
 # Exports
-- `config` — validated, typed configuration object (named export).
-- `isDev` — boolean: `true` when `nodeEnv !== 'production'` (named export).
-- `isProd` — boolean: `true` when `nodeEnv === 'production'` (named export).
+- `config` — object with `nodeEnv`, `port`, `mongoUri`, `dbName`, `apiPrefix`, `logLevel`.
+- `isProd` — boolean, `true` when `nodeEnv === 'production'`.
 
 # Internal Functions
-- None. This module runs validation and exports constants at load time; there are no named/internal functions.
+- None. Validation runs at module load; `config` and `isProd` are computed as module constants.
 
 # Execution Flow
-1. `dotenv.config()` populates `process.env` from `.env`, if present.
-2. `configSchema` is defined with the following rule set:
-   - `PORT`: coerced to integer, `1..65535`, default `3000`.
-   - `NODE_ENV`: enum `development | production | test`, default `development`.
-   - `MONGODB_URI`: required non-empty string.
-   - `DB_NAME`: string, default `thewovencloudkitchen`.
-   - `JWT_SECRET`: string, min 16 characters.
-   - `JWT_EXPIRES_IN`: string, default `7d`.
-   - `API_PREFIX`: string, default `/api/v1`.
-   - `LOG_LEVEL`: enum `error | warn | info | debug`, default `info`.
-3. `configSchema.safeParse(process.env)` runs; result checked.
-4. If `!parsed.success`, each issue is logged (using `issue.path.join('.')` and `issue.message`) and `process.exit(1)` runs.
-5. On success, `config` is built from `parsed.data` and exported; `isDev` and `isProd` are computed and exported.
+1. `dotenv.config()` loads `.env`.
+2. `configSchema.safeParse(process.env)` validates the environment.
+3. If invalid, each issue is logged and `process.exit(1)` is called.
+4. `config` is built from `parsed.data` (values already coerced/validated by Zod).
+5. `isProd` is derived and both are exported.
 
 # Related Files
-- `src/server.ts` — imports `config` for `port`, `dbName`, and `nodeEnv`.
-- `src/config/swagger.config.ts` — imports `config` for `port` and `apiPrefix` to build Swagger server URLs.
-- Any other module that needs configuration (e.g., logger uses `LOG_LEVEL`, DI modules use `JWT_SECRET`, `JWT_EXPIRES_IN`).
+- `src/app.js` — reads `config.apiPrefix`, `isProd`.
+- `src/server.js` — reads `config.port`, `config.nodeEnv`.
+- `src/config/swagger.js` — reads `config.port`.
+- `src/infrastructure/database/mongoose/connection.js` — reads `config.mongoUri`, `config.dbName`, `isProd`.
+- `src/shared/utils/logger.js` — reads `config.logLevel`, `config.nodeEnv`.
 
 # Example Usage
-```typescript
-import { config, isDev, isProd } from './config';
+```javascript
+const { config, isProd } = require('../config');
+console.log(config.port, config.apiPrefix, isProd);
+```
 
-const port = config.port;          // number
-const uri = config.mongoUri;       // string
-if (isProd) { console.log('production'); }
-```
-`.env` file:
-```dotenv
-PORT=4000
-NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/twk
-DB_NAME=thewovencloudkitchen
-JWT_SECRET=this-is-a-secret-that-is-long-enough
-JWT_EXPIRES_IN=7d
-API_PREFIX=/api/v1
-LOG_LEVEL=info
-```
+# Schema Summary
+- `NODE_ENV` — enum `['development','production','test']`, default `development`.
+- `PORT` — integer 1–65535, default `3000` (coerced from string).
+- `MONGODB_URI` — required non-empty string.
+- `DB_NAME` — string, default `thewovencloudkitchen`.
+- `API_PREFIX` — string, default `/api`.
+- `LOG_LEVEL` — enum `['error','warn','info','debug']`, default `info`.
 
 # Best Practices
-- Validate all required environment configuration at startup so misconfigurations fail fast rather than at runtime.
-- Provide sensible defaults for optional values (port, env, DB name, JWT expiry, API prefix, log level).
-- Use coercion (`z.coerce.number()`) so numeric env vars (which arrive as strings) are converted safely.
-- Refuse to start with a weak or missing `JWT_SECRET` (minimum 16 chars) for security.
-- Export a single typed `config` object to avoid scattering `process.env` reads across the codebase.
+- Keep all environment parsing/validation in one place so misconfiguration fails fast at startup.
+- Document required vars (like `MONGODB_URI`) so deployment config is explicit.
 
 # Common Mistakes
-- Not calling `dotenv.config()` before reading `process.env`, so variables from `.env` are never loaded.
-- Using `z.string()` for the port or other numeric values without coercion, causing type mismatches.
-- Failing to handle `safeParse` failure, which lets the app boot with invalid config and fail later confusingly.
-- Using `process.env.X` directly elsewhere instead of the validated `config` object.
-- Exiting with `process.exit(1)` on invalid config without printing actionable error messages.
+- Forgetting to set `MONGODB_URI`, causing a startup crash with a Zod validation error.
+- Reading `process.env` directly elsewhere instead of using the validated `config` object.
 
 # Notes For Frontend Developers
-- This file is server-side only; frontend developers do not usually interact with it directly.
-- The `MONGODB_URI` and `DB_NAME` together point to the physical database connection and database name.
-- `JWT_EXPIRES_IN` and `API_PREFIX` influence authentication token lifetimes and the versioned API path prefix (`/api/v1` by default), which frontend clients must match when calling the API.
-- `LOG_LEVEL` controls how verbose server logs are in different environments.
-- If the server refuses to start, it frequently prints a list of invalid/missing environment variables here — a common first place to check for startup failures.
+- The API prefix defaults to `/api` (override via `API_PREFIX`), and the port defaults to `3000` (override via `PORT`).
+- `MONGODB_URI` is the environment-specific database connection string; without it the server exits immediately.

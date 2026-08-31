@@ -4,14 +4,12 @@ The Woven Cloud Kitchen - Admin Backend API
 
 ## Tech Stack
 
-- **Runtime**: Node.js 20
-- **Language**: TypeScript
+- **Runtime**: Node.js 20 (JavaScript, no TypeScript)
 - **Framework**: Express.js
 - **ODM**: Mongoose
 - **Database**: MongoDB (`thewovencloudkitchen`)
-- **Architecture**: Clean Architecture with CQRS
-- **DI**: InversifyJS
-- **Docs**: Swagger / OpenAPI 3
+- **Architecture**: Clean Architecture with CQRS (plain JS modules)
+- **Docs**: Swagger / OpenAPI 3 (`/api-docs`)
 - **Validation**: Zod
 - **Logging**: Winston
 
@@ -19,40 +17,39 @@ The Woven Cloud Kitchen - Admin Backend API
 
 ```
 src/
-├── api/                    # API Layer (Routes, Controllers)
-│   ├── routes/
-│   └── controllers/
+├── api/                    # API Layer
+│   ├── routes/             # Express routers (e.g. health)
+│   ├── controllers/        # HTTP controllers (future CQRS)
+│   ├── middlewares/        # requestLogger, validate, errorHandler
+│   └── docs/               # API documentation assets
 │
-├── application/            # Application Layer
-│   ├── commands/           # Command objects (write operations)
-│   ├── queries/            # Query objects (read operations)
-│   ├── handlers/           # Command & Query handlers (business logic)
-│   └── dto/                # Zod validation schemas + inferred types
+├── application/            # Application Layer (future CQRS)
+│   ├── commands/
+│   ├── queries/
+│   ├── handlers/
+│   ├── dto/
+│   └── services/
 │
-├── domain/                 # Domain Layer
-│   ├── entities/           # Business entities
-│   ├── repositories/       # Repository interfaces (ports)
-│   ├── value-objects/      # Value objects / enums
-│   └── interfaces/         # CQRS contracts
+├── domain/                 # Domain Layer (future business entities)
+│   ├── entities/
+│   ├── repositories/
+│   └── value-objects/
 │
 ├── infrastructure/         # Infrastructure Layer
 │   ├── database/
-│   │   ├── mongoose/       # DB connection
-│   │   ├── models/         # Mongoose schemas/models
-│   │   └── seed/           # Seed data script
-│   ├── repositories/       # Mongoose repository implementations (adapters)
-│   └── di/                 # InversifyJS DI container
+│   │   ├── mongoose/       # DB connection (connectDB/disconnectDB)
+│   │   └── models/         # Mongoose schemas/models (future)
+│   ├── repositories/       # Repository adapters (future)
+│   └── config/
 │
-├── config/                 # Environment configuration + Swagger setup
+├── config/                 # Env configuration (Zod) + Swagger
 ├── shared/                 # Cross-cutting concerns
-│   ├── utils/              # Logger, response helpers, async handler
-│   ├── constants/          # DI tokens
-│   ├── errors/             # AppError hierarchy + error codes
-│   ├── types/              # Shared TS types
-│   └── middleware/         # Error handler, validation, auth, request logging
+│   ├── utils/              # logger, response helpers, asyncHandler
+│   ├── constants/          # error codes
+│   └── errors/             # AppError + error classes
 │
-├── app.ts                  # Express application setup
-└── server.ts               # Bootstrap (DB connect + HTTP server)
+├── app.js                  # Express application setup
+└── server.js               # Bootstrap (DB connect + HTTP server + shutdown)
 ```
 
 ## Getting Started
@@ -81,49 +78,41 @@ Key variables:
 
 | Variable | Description | Default |
 | --- | --- | --- |
-| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017` |
+| `MONGODB_URI` | MongoDB connection string | `mongodb://localhost:27017/thewovencloudkitchen` |
 | `DB_NAME` | Database name | `thewovencloudkitchen` |
 | `PORT` | HTTP port | `3000` |
-| `JWT_SECRET` | JWT signing secret (min 16 chars) | - |
+| `API_PREFIX` | API route prefix | `/api` |
+| `LOG_LEVEL` | Winston log level | `info` |
 
 ### Run with Docker (MongoDB + API)
 
 ```bash
-# Start MongoDB and the API
 docker compose up --build
-
-# Run the database seed inside Docker
-docker compose run --rm seed
 ```
 
 ### Run locally
 
 ```bash
-# Seed the database with an initial admin user
-npm run seed
-
 # Development (hot reload)
 npm run dev
 
 # Production
-npm run build
 npm start
 ```
+
+No build step is required — the backend is plain JavaScript run directly by Node.
 
 ## API Documentation
 
 Once the server is running, visit:
 
-- **Swagger UI**: http://localhost:3000/api/docs
-- **Health Check**: http://localhost:3000/health
+- **Swagger UI**: http://localhost:3000/api-docs
+- **Health Check**: http://localhost:3000/api/health
 
 ## Architecture
 
-This project follows **Clean Architecture** with the **CQRS** pattern:
-
-### Dependency Rule
-
-Dependencies point **inward**:
+This project follows **Clean Architecture** and is structured for the **CQRS** pattern.
+Layers are separated by folder and dependencies point inward:
 
 ```
 API → Application → Domain
@@ -131,28 +120,23 @@ API → Application → Domain
    Infrastructure (implements Domain ports)
 ```
 
-- **Domain Layer**: Pure business entities and repository *interfaces* (ports). No framework/DB dependencies.
-- **Application Layer**: Command/Query objects and their handlers. Orchestrates use cases against domain ports. Depends only on Domain.
-- **Infrastructure Layer**: Mongoose models and repository *adapters* that implement the Domain ports. Wired via InversifyJS DI.
-- **API Layer**: Express routes and controllers. Translates HTTP requests into commands/queries, invokes handlers, and formats responses.
+- **Domain Layer**: business entities and repository contracts. No framework/DB dependencies.
+- **Application Layer**: commands, queries, handlers, DTOs. Orchestrates use cases.
+- **Infrastructure Layer**: Mongoose connection, models, and repository adapters.
+- **API Layer**: Express routes, controllers, and middlewares.
 
-### CQRS
-
-- **Commands** (writes): `CreateUserCommand`, `UpdateUserCommand`, `DeleteUserCommand`
-- **Queries** (reads): `GetUserByIdQuery`, `GetAllUsersQuery`
-- **Handlers**: `CreateUserHandler`, `UpdateUserHandler`, `DeleteUserHandler`, `GetUserByIdHandler`, `GetAllUsersHandler`
-
-Every request is dispatched to a dedicated handler. Read and write paths are fully separated — a command never reads and a query never mutates.
+Story 0.2 prepares the folder structure for future CQRS commands/queries/handlers; no
+business-specific entities are introduced yet. The `domain/application` folders are placeholders.
 
 ### Error Handling
 
 - Global error-handling middleware normalizes all errors into a standard response.
-- `AppError` hierarchy: `NotFoundError`, `ValidationError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`, `InternalError`.
+- `AppError` hierarchy: `NotFoundError`, `ValidationError`, `ConflictError`, `InternalError`.
 - Standard error response shape:
 
 ```json
 {
-  "status": "error",
+  "success": false,
   "message": "...",
   "code": "NOT_FOUND"
 }

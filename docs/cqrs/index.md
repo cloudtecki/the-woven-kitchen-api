@@ -1,108 +1,139 @@
 # CQRS in backend-twk-admin
 
-This project implements **CQRS** (Command Query Responsibility Segregation) on top of **Clean Architecture**, using TypeScript, Express and Mongoose. This guide explains how CQRS is wired up, aimed at Frontend developers who may only see the HTTP side of things.
+> **Current status (Story 0.2):** No CQRS implementation exists yet. The application and domain layer directories are scaffolded with `.gitkeep` placeholders only. This document describes the **intended future design**, not current working code.
 
-## What CQRS means here
+## What is CQRS?
 
-CQRS separates the two kinds of operations a system performs:
+CQRS (Command Query Responsibility Segregation) separates the two kinds of operations a system performs:
 
-- **Commands** — operations that **change** state (create, update, delete). They are verbs, e.g. "create a user".
-- **Queries** — operations that **read** state without changing it (get one, list many). They are nouns, e.g. "the user by id".
+- **Commands** — operations that **change** state (create, update, delete). They are imperative verbs, e.g. "create an order".
+- **Queries** — operations that **read** state without changing it (get one, list many). They are nouns, e.g. "the order by id".
 
-Each of these is a *plain data object* (a DTO) that holds only the inputs. The actual **business logic** lives in a matching **Handler**. Handlers are the bridge between the HTTP layer (controllers) and the persistence layer (repositories), and ultimately MongoDB.
+Each operation is represented as a **plain data object** (a DTO / value object) that holds only the input. The actual **business logic** lives in a matching **Handler**. Handlers bridge the HTTP layer (Express routes) and the persistence layer (Mongoose models).
 
-## Read/Write Separation
+## Current scaffolding
 
-Even though commands and queries here currently touch the same `users` collection, the **code paths are fully separated**:
+The following directories exist in the source tree but contain **only `.gitkeep` files** — no implementation code:
+
+| Directory | Purpose (future) |
+| --- | --- |
+| `src/application/commands/` | Write-operation DTOs (e.g. a future `CreateOrderCommand`) |
+| `src/application/queries/` | Read-operation DTOs (e.g. a future `GetOrderByIdQuery`) |
+| `src/application/handlers/` | Business logic for each command/query |
+| `src/application/dto/` | Shared DTO definitions |
+| `src/application/services/` | Application-layer services |
+| `src/domain/entities/` | Domain entity classes |
+| `src/domain/repositories/` | Repository interfaces (ports) |
+| `src/domain/value-objects/` | Value objects |
+
+There is **no** `cqrs.interface.ts` or `cqrs.interface.js` file. There are **no** User commands, queries, handlers, repositories, controllers, or DI container. There is no Inversify, no `reflect-metadata`, no TypeScript.
+
+## Intended future design
+
+The project will adopt CQRS in plain JavaScript (CommonJS). The planned pattern:
 
 ```
-              ┌───────────────────────────────┐
-              │   Express HTTP Controllers     │
-              │   src/api/controllers/         │
-              └───────────────┬───────────────┘
-                              │
-               ┌──────────────┴──────────────┐
-               │                             │
-      (WRITE)  ▼                             ▼  (READ)
-   Commands DTOs                        Queries DTOs
-   (create/update/delete)               (get by id, get all)
-               │                             │
-               ▼                             ▼
-   Command Handlers                   Query Handlers
-   (business logic)                  (business logic, read-only)
-               │                             │
-               └──────────────┬──────────────┘
-                              ▼
-                   IUserRepository (port)
-                              │
-                              ▼
-                   UserRepository (adapter)
-                              │
-                              ▼
-                        MongoDB (users)
+┌───────────────────────────────────┐
+│   Express Route Handlers          │
+│   src/api/routes/                 │
+└───────────────┬───────────────────┘
+                │
+     ┌──────────┴──────────┐
+     │                     │
+ (WRITE)                (READ)
+ Commands DTOs          Queries DTOs
+     │                     │
+     ▼                     ▼
+ Command Handlers       Query Handlers
+ (business logic)      (business logic, read-only)
+     │                     │
+     └──────────┬──────────┘
+                ▼
+         Repository (port)
+                │
+                ▼
+         Repository (Mongoose adapter)
+                │
+                ▼
+            MongoDB
 ```
 
-- **Commands** are dispatched to **Command Handlers**.
-- **Queries** are dispatched to **Query Handlers**.
-- Both handler kinds use the **same repository port** (`IUserRepository`), but command handlers call methods that mutate (`create`, `update`, `delete`), while query handlers call read-only methods (`findById`, `findAll`).
+### Commands (writes)
 
-## Mapping Table
+A command is a plain object (DTO) holding input data for a state-changing operation. Example (future, illustrative only):
+
+```js
+class CreateOrderCommand {
+  constructor({ productId, quantity, customerId }) {
+    this.productId = productId;
+    this.quantity = quantity;
+    this.customerId = customerId;
+  }
+}
+```
+
+### Queries (reads)
+
+A query is a plain object (DTO) holding input data for a read-only operation. Example (future, illustrative only):
+
+```js
+class GetOrderByIdQuery {
+  constructor(orderId) {
+    this.orderId = orderId;
+  }
+}
+```
+
+### Handlers
+
+A handler receives a command or query DTO and executes the business logic. It calls a repository for persistence. Example (future, illustrative only):
+
+```js
+class CreateOrderHandler {
+  constructor(orderRepository) {
+    this.orderRepository = orderRepository;
+  }
+
+  async execute(command) {
+    // business logic here
+    return this.orderRepository.create(command);
+  }
+}
+```
+
+### Mapping table (planned pattern)
+
+When commands/queries are introduced in future stories, each will follow this mapping pattern:
 
 | Command / Query | Handler | Repository Method | Mongoose Operation |
-| --------------- | ------- | ----------------- | ------------------ |
-| `CreateUserCommand` | `CreateUserHandler` | `findByEmail` → `create` | `findOne` → `create` |
-| `UpdateUserCommand` | `UpdateUserHandler` | `update` | `findByIdAndUpdate` |
-| `DeleteUserCommand` | `DeleteUserHandler` | `delete` | `findByIdAndDelete` |
-| `GetUserByIdQuery` | `GetUserByIdHandler` | `findById` | `findById(...).lean()` |
-| `GetAllUsersQuery` | `GetAllUsersHandler` | `findAll` (+ `count`) | `find(...).sort().skip().limit()` + `countDocuments()` |
+| --- | --- | --- | --- |
+| `CreateXCommand` | `CreateXHandler` | `create` | `Model.create(...)` |
+| `UpdateXCommand` | `UpdateXHandler` | `update` | `findByIdAndUpdate(...)` |
+| `DeleteXCommand` | `DeleteXHandler` | `delete` | `findByIdAndDelete(...)` |
+| `GetXByIdQuery` | `GetXByIdHandler` | `findById` | `findById(...).lean()` |
+| `GetAllXQuery` | `GetAllXHandler` | `findAll` | `find(...).sort().skip().limit()` |
 
-### HTTP → CQRS mapping
+### HTTP → CQRS mapping (planned pattern)
 
 | REST Endpoint | Method | Command / Query | Handler |
-| ------------- | ------ | --------------- | ------- |
-| `/api/users`           | GET    | `GetAllUsersQuery`  | `GetAllUsersHandler`  |
-| `/api/users/:id`       | GET    | `GetUserByIdQuery`  | `GetUserByIdHandler`  |
-| `/api/users`           | POST   | `CreateUserCommand` | `CreateUserHandler`  |
-| `/api/users/:id`       | PUT    | `UpdateUserCommand` | `UpdateUserHandler`  |
-| `/api/users/:id`       | DELETE | `DeleteUserCommand` | `DeleteUserHandler` |
-
-## Full Flow (end to end)
-
-```mermaid
-sequenceDiagram
-    participant FE as Frontend Browser
-    participant API as Express API
-    participant C as Controllers
-    participant INT as Domain Interfaces (cqrs.interface.ts)
-    participant H as Handlers
-    participant R as UserRepository (Mongoose)
-    participant DB as MongoDB
-
-    FE->>API: HTTP request (GET/POST/PUT/DELETE /api/users...)
-    API->>C: route handler
-    C->>C: build Command OR Query DTO
-    C->>H: handler.execute(dto)
-    H->>INT: follows Command<T> / Query<TIn,TOut> contract
-    H->>R: repository method (read or write)
-    R->>DB: Mongoose model call
-    DB-->>R: result
-    R-->>H: User entity / null / { data, total }
-    H-->>C: result (or throw NotFound/Conflict)
-    C-->>API: HTTP response (200/201/404/409)
-    API-->>FE: JSON response
-```
-
-## Domain contracts
-
-The formal contracts are `Command<T, TResult>` and `Query<TInput, TOutput>` in `src/domain/interfaces/cqrs.interface.ts`. See the dedicated page [cqrs-interface.md](./cqrs-interface.md).
+| --- | --- | --- | --- |
+| `/api/<resource>` | GET | `GetAllXQuery` | `GetAllXHandler` |
+| `/api/<resource>/:id` | GET | `GetXByIdQuery` | `GetXByIdHandler` |
+| `/api/<resource>` | POST | `CreateXCommand` | `CreateXHandler` |
+| `/api/<resource>/:id` | PUT | `UpdateXCommand` | `UpdateXHandler` |
+| `/api/<resource>/:id` | DELETE | `DeleteXCommand` | `DeleteXHandler` |
 
 ## Directory reference
 
-- **Commands:** `src/application/commands/`
-- **Queries:** `src/application/queries/`
-- **Handlers:** `src/application/handlers/`
-- **Domain contracts:** `src/domain/interfaces/cqrs.interface.ts`
-- **Repository port:** `src/domain/repositories/user-repository.interface.ts`
-- **Repository adapter:** `src/infrastructure/repositories/user.repository.ts`
-- **Controllers:** `src/api/controllers/user.controller.ts`
-- **DI/container:** resolved via `src/infrastructure/di` and `TYPES` tokens.
+| Path | Content |
+| --- | --- |
+| `src/application/commands/` | `.gitkeep` (scaffolding) |
+| `src/application/queries/` | `.gitkeep` (scaffolding) |
+| `src/application/handlers/` | `.gitkeep` (scaffolding) |
+| `src/application/dto/` | `.gitkeep` (scaffolding) |
+| `src/application/services/` | `.gitkeep` (scaffolding) |
+| `src/domain/entities/` | `.gitkeep` (scaffolding) |
+| `src/domain/repositories/` | `.gitkeep` (scaffolding) |
+| `src/domain/value-objects/` | `.gitkeep` (scaffolding) |
+| `src/infrastructure/repositories/` | `.gitkeep` (scaffolding) |
+| `src/api/controllers/` | `.gitkeep` (scaffolding) |

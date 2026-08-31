@@ -1,51 +1,36 @@
 # File Name
-`index.ts`
+`index.js` (placeholder)
 
 # File Path
-`src\domain\value-objects\index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\domain\value-objects`
 
 # Purpose
-Barrel (index) file for the domain **value-objects** sub-module. It re-exports all public value objects so consumers can import them from a single location (`src/domain/value-objects`).
+Placeholder documentation for the `src/domain/value-objects` directory. Empty scaffolding for future domain value objects. Currently contains no code (only a `.gitkeep` placeholder).
 
 # Responsibilities
-- Re-export everything from `./user-role`.
-- Provide a clean, stable import surface for value objects.
-- Shield consumers from the underlying file layout.
-
-# Dependencies
-| Import | Explanation |
-|--------|-------------|
-| `./user-role` | Defines and exports the `UserRole` enum. |
+- Reserved for future immutable value-object classes.
+- Currently empty; nothing to document.
 
 # Exports
-| Export | Kind | Description |
-|--------|------|-------------|
-| `UserRole` | Enum | The user role value object (ADMIN/MANAGER/STAFF). |
+- None (no source files present).
 
 # Internal Functions
-None. Re-export only; no logic.
+- None.
 
 # Execution Flow
-1. Resolves and loads `./user-role`.
-2. Re-exports all its public symbols.
-3. The aggregated symbols become available through `src/domain/value-objects`.
+- No runtime flow; awaiting future implementation.
 
 # Related Files
-- `src\domain\value-objects\user-role.ts`
-- `src\domain\index.ts` — parent barrel re-exporting this module.
+- `src/domain/entities` — future entities that may embed these value objects.
 
 # Example Usage
-```ts
-import { UserRole } from '@domain/value-objects';
-```
+None yet — empty scaffolding.
 
 # Best Practices
-- Only re-export; never add logic to this barrel.
-- Add a new re-export line whenever a new value-object file is added.
+- When implemented, make value objects immutable and self-validating.
 
 # Common Mistakes
-- Forgetting to update this barrel after adding a new value object.
-- Importing from the parent `src/domain` barrel inside value-object files (use relative paths).
+- Giving value objects identity or mutable state.
 
 # Notes For Frontend Developers
-- Value objects here are type-only (via the enum); importing `UserRole` is just a named constant reference and adds no runtime weight.
+- Internal to backend; no current API impact.

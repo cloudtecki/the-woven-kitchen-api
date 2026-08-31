@@ -1,107 +1,154 @@
 # Folder: infrastructure
 
-# Path: src/infrastructure
+# Path: src/infrastructure/
 
 # Purpose
 
-The **infrastructure** layer is the outer framework layer. It contains all the concrete, technology-specific implementations behind the interfaces defined in `domain` and used by `application`. This is where the real work of persistence (Mongoose), dependency wiring (Inversify DI), and data seeding happens. If you swap a technology, you change this folder — and nothing else.
+The **infrastructure** layer is the outer framework layer. It contains concrete, technology-specific implementations behind the interfaces that will be defined in `domain` and used by `application`. Currently the only implemented piece is the **Mongoose database connection**. Everything else is empty scaffolding for future business stories.
+
+There is **no dependency injection container** (no Inversify), **no seeder**, and **no repository or model implementations** yet. The project uses plain JavaScript CommonJS modules with direct `require()` imports.
 
 # Responsibilities
 
-- **Database connection** (`database/mongoose/`): The `MongoConnection` singleton that connects to and disconnects from MongoDB, and registers connection lifecycle event handlers.
-- **Mongoose models** (`database/models/`): The concrete `UserModel` schema/collection definition backed by Mongoose (`user.model.ts`).
-- **Seeding** (`database/seed/`): The `DatabaseSeeder` and its standalone entry script (`index.ts`) that syncs indexes and creates the initial admin user.
-- **Repositories** (`repositories/`): The concrete `UserRepository` that implements the `domain` `IUserRepository` interface by mapping between Mongoose documents and `User` entities.
-- **Dependency injection** (`di/`): The `container` that binds every interface/abstraction in the app to its concrete implementation using Inversify and the `TYPES` tokens.
+- **Database connection** (`database/mongoose/connection.js`): The `connectDB()` and `disconnectDB()` functions that connect to and disconnect from MongoDB using `mongoose.connect()`. Registers connection lifecycle event handlers (`connected`, `error`, `disconnected`) that log via the shared winston logger.
+- **Mongoose models** (`database/models/`): Empty placeholder (`.gitkeep`). Will contain Mongoose schema/collection definitions for future business entities.
+- **Repositories** (`repositories/`): Empty placeholder (`.gitkeep`). Will contain concrete repository implementations that fulfill the `domain` repository interfaces.
+- **Config** (`config/`): Empty placeholder (`.gitkeep`). Reserved for infrastructure-level configuration if needed in the future.
 
 # Why this folder exists
 
-Clean Architecture keeps frameworks at the edge so that business logic (in `domain`/`application`) is not polluted by the database or container libraries. This folder is that edge — it hosts every concrete dependency and exposes them to the rest of the app through *interfaces* (domain) and *DI tokens* (shared). It is the only layer that knows about Mongoose and Inversify concretely. A Frontend Developer rarely needs to look here, but if they ever wonder "where does the data actually come from and how is it wired?" — this is it.
+Clean Architecture keeps frameworks at the edge so that business logic (in `domain`/`application`) is not polluted by database or container libraries. This folder is that edge — it hosts every concrete dependency and exposes them to the rest of the app through *interfaces* (defined in `domain`). It is the only layer that knows about Mongoose concretely.
 
 # What files belong here
+
+Currently (Story 0.2):
 
 ```
 infrastructure/
 ├── database/
 │   ├── mongoose/
-│   │   ├── connection.ts           # MongoConnection singleton (connect/disconnect/events)
-│   │   └── index.ts
-│   ├── models/
-│   │   ├── user.model.ts           # Mongoose UserModel schema
-│   │   └── index.ts
-│   └── seed/
-│       ├── index.ts                # standalone seed entry script
-│       └── seeder.ts               # DatabaseSeeder: syncIndexes + seedAdmin
+│   │   └── connection.js       # connectDB()/disconnectDB() via mongoose.connect
+│   └── models/                 # .gitkeep — EMPTY placeholder for future Mongoose models
+├── repositories/               # .gitkeep — EMPTY placeholder for future repository impls
+└── config/                     # .gitkeep — EMPTY placeholder
+```
+
+Future structure (example):
+
+```
+infrastructure/
+├── database/
+│   ├── mongoose/
+│   │   └── connection.js       # connectDB()/disconnectDB()
+│   └── models/
+│       ├── user.model.js       # Mongoose User schema
+│       └── index.js
 ├── repositories/
-│   ├── user.repository.ts          # Mongoose-backed IUserRepository implementation
-│   └── index.ts
-└── di/
-    ├── container.ts                # Inversify Container + bindings
-    └── index.ts
+│   ├── user.repository.js      # IUserRepository implementation
+│   └── index.js
+└── config/
+    └── index.js                # Infrastructure-specific config (if needed)
 ```
 
 # Which layer depends on it
 
-Almost nothing *outside* the framework depends on this layer directly — that is intentional:
+Currently:
 
-- `api/controllers` import the `container` (from `infrastructure/di`) solely to resolve handlers; this is the single allowed cross-layer coupling for wiring.
-- `server.ts` (top-level) imports `MongoConnection` to connect/disconnect on startup/shutdown.
-- `infrastructure/di/container.ts` depends on the *concrete* repositories and the *application* handlers to register bindings.
+- `server.js` (top-level) imports `connectDB`/`disconnectDB` to manage the database lifecycle on startup/shutdown.
 
-The infrastructure layer itself depends on: `domain` (interfaces/entities), `application` (handlers, for DI binding), `shared` (TYPES tokens, logger), and `config`.
+In the future:
+
+- `api/controllers` will import concrete repositories or services from here (only for dependency wiring, not for business logic).
+
+The infrastructure layer itself depends on:
+- `config` — `config.mongoUri`, `config.dbName`, `config.nodeEnv`
+- `shared` — `logger`
+
+Future dependencies:
+- `domain` — entities, repository interfaces (to implement them)
 
 # Which layer should NOT depend on it
 
-- `domain` and `application` must **never** import anything from `infrastructure`. If a handler or entity needed a Mongo class, the architecture would be broken.
-- `application/handlers` must only use the `domain` repository *interface* (injected), never the concrete `UserRepository`.
-- Nothing outside `infrastructure/di` and `server.ts` should reach into `infrastructure/database` directly.
+- `domain` and `application` must **never** import anything from `infrastructure`. If a handler or entity needed a Mongoose class, the architecture would be broken.
+- `application/handlers` must only use the `domain` repository *interface*, never the concrete repository from `infrastructure`.
 
 # Flow
 
 ```
-application/handlers ──(injected IUserRepository)──►
+server.js ──► connectDB() / disconnectDB()
+                  │
+                  ▼
+infrastructure/database/mongoose/connection.js
+                  │
+                  ▼
+           mongoose.connect(config.mongoUri, { dbName: config.dbName, autoIndex: !isProd })
+
+Future flow:
+application/handlers ──(domain repository interface)──►
         │
         ▼
-infrastructure/repositories/UserRepository        ◄── implements IUserRepository
+infrastructure/repositories/<entity>.repository.js   ◄── implements domain interface
         │
         ▼
-infrastructure/database/models/UserModel (Mongoose schema)
+infrastructure/database/models/<entity>.model.js     ◄── Mongoose schema
         │
         ▼
 MongoDB
-
-Wiring: infrastructure/di/container.ts
-  binds TYPES.UserRepository → UserRepository (singleton)
-  binds TYPES.<X>Handler      → <X>Handler
 ```
-
-The `container` is the "glue": controllers ask it to resolve a handler, and that handler transparently receives its dependencies (like `UserRepository`) via constructor injection.
 
 # Example
 
-`infrastructure/di/container.ts` wires the whole app:
+`infrastructure/database/mongoose/connection.js` — the only implemented file:
 
-```ts
-container.bind<IUserRepository>(TYPES.UserRepository).to(UserRepository).inSingletonScope();
-container.bind<CreateUserHandler>(TYPES.CreateUserHandler).to(CreateUserHandler);
-// ... other handlers
-```
+```js
+const mongoose = require('mongoose');
+const { config, isProd } = require('../../../config');
+const { logger } = require('../../../shared/utils/logger');
 
-`infrastructure/repositories/user.repository.ts` reduces this to something domain-shaped:
+mongoose.set('strictQuery', true);
 
-```ts
-async findById(id: string): Promise<User | null> {
-  if (!Types.ObjectId.isValid(id)) return null;
-  const doc = await UserModel.findById(id).lean();
-  return doc ? this.mapToEntity(doc) : null;
+async function connectDB() {
+  mongoose.connection.on('connected', () => {
+    logger.info(`MongoDB connected to database: ${config.dbName}`);
+  });
+  mongoose.connection.on('error', (error) => {
+    logger.error('MongoDB connection error', { error: error.message });
+  });
+  mongoose.connection.on('disconnected', () => {
+    logger.warn('MongoDB disconnected');
+  });
+
+  await mongoose.connect(config.mongoUri, {
+    dbName: config.dbName,
+    autoIndex: !isProd,
+  });
 }
+
+async function disconnectDB() {
+  await mongoose.disconnect();
+}
+
+module.exports = { connectDB, disconnectDB };
 ```
 
-It calls the concrete Mongoose `UserModel`, then maps the raw document into a `domain/entities/user.entity.ts` `User` via `mapToEntity` — keeping Mongoose specifics entirely inside this layer.
+`server.js` uses it at startup:
+
+```js
+await connectDB();
+server = app.listen(config.port, () => { /* ... */ });
+```
+
+And on shutdown:
+
+```js
+server.close(async () => {
+  await disconnectDB();
+  process.exit(0);
+});
+```
 
 # Related Folders
 
-- `docs\folders\domain.md` — the `IUserRepository` interface that `UserRepository` implements.
-- `docs\folders\application.md` — the handlers bound into the DI container.
-- `docs\folders\shared.md` — the `TYPES` tokens and logger used throughout.
-- `docs\folders\config.md` — the connection reads `config.mongoUri` / `config.dbName`.
+- `docs/folders/domain.md` — the repository interfaces that `infrastructure/repositories` (future) will implement.
+- `docs/folders/shared.md` — the `logger` used by `connection.js`.
+- `docs/folders/config.md` — the connection reads `config.mongoUri` / `config.dbName`.

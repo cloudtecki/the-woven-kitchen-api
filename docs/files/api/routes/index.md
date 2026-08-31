@@ -1,63 +1,48 @@
 # File Name
-index.ts (routes)
+`index.js`
 
 # File Path
-`D:\real-time-project\twk\backend-twk-admin\src\api\routes\index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\api\routes\index.js`
 
 # Purpose
-The route aggregation layer for the API. It creates the top-level Express `Router` and mounts each feature router onto it under its resource prefix. Currently it mounts the user feature router at `/users`. This module is imported by `app.ts` and mounted under the `/api` prefix, forming the complete `/api/users/...` endpoint paths.
+The router barrel for the API. It creates an Express `Router` and mounts the individual route modules onto it. Currently it only mounts the health route, but it is the intended aggregation point for all feature routes. Plain JavaScript (CommonJS — `require` / `module.exports`).
 
 # Responsibilities
-- Create a new `Router()` instance.
-- Mount the `userRouter` onto the router under the `/users` path prefix.
-- Export the aggregated `router` for consumption by `app.ts`.
-- Act as a single extension point where new feature routers (future resources) would be added.
-
-# Dependencies
-- `express` (named import `Router`): The Express router factory used to create the aggregated router instance.
-- `./user.routes` (named export `userRouter`): The feature router containing all user CRUD routes; mounted at `/users`.
+- Create an Express `Router` instance.
+- Mount feature route routers (`health.routes`) onto it.
+- Export the combined router so `app.js` can mount it under `config.apiPrefix`.
+- Serve as the single place to register future route modules.
 
 # Exports
-- `router` — the aggregated Express `Router` instance (named export).
+- Default export: `router` (CommonJS `module.exports = router`) — an Express `Router`.
 
 # Internal Functions
-- None. `index.ts` only constructs a router and mounts sub-routers; there are no functions.
+- None (only the shared `router` instance is created).
 
 # Execution Flow
-1. Import `Router` from express and `userRouter` from `./user.routes`.
-2. Create `const router = Router()`.
-3. Register `router.use('/users', userRouter)` so all `/users` sub-paths delegate to `userRouter`.
-4. Export `router`.
-5. `app.ts` imports this `router` and mounts it at `/api` with `app.use('/api', router)`, yielding final paths like `/api/users`.
+1. `express.Router()` creates the router.
+2. `router.use(require('./health.routes'))` mounts the health-router.
+3. `module.exports = router` exports it.
+4. In `app.js`, it is mounted via `app.use(config.apiPrefix, apiRoutes)`, so the health route resolves to `GET /api/health`.
 
 # Related Files
-- `src/app.ts` — imports `router` and mounts it at `/api`.
-- `src/api/routes/user.routes.ts` — provides the `userRouter` mounted here.
-- Feature-specific routes (future files) that would be added here as additional `router.use(...)` calls.
+- `src/api/routes/health.routes.js` — the currently mounted route module.
+- `src/app.js` — mounts this router under `/api`.
+- `src/config/index.js` — provides `config.apiPrefix` used at mount time.
 
 # Example Usage
-```typescript
-// Exporting the aggregated router
-export { router };
-```
-```typescript
-// In app.ts
-import { router } from './api/routes';
-app.use('/api', router);
+```javascript
+// app.js (mounted by the framework):
+app.use(config.apiPrefix, require('./api/routes'));
 ```
 
 # Best Practices
-- Keep routing thin: only aggregate feature routers; put per-resource route definitions in dedicated route files.
-- Use a single mount point pattern so adding a new feature is a one-line change here plus a new feature router.
-- Centralize prefix definitions here so route mounting stays consistent and navigable.
+- Add each new feature router here as `router.use(require('./<feature>.routes'))`.
+- Keep this file a pure aggregation with no route logic.
 
 # Common Mistakes
-- Forgetting to export `router`, causing `app.ts` to fail to find it.
-- Mounting routers under conflicting prefixes, producing ambiguous endpoint paths.
-- Adding route logic (controllers/handlers) here instead of delegating to feature routers, bloating the aggregation layer.
-- Importing from the wrong path when the feature router file structure changes.
+- Defining route logic directly in this barrel instead of delegating to route modules.
+- Mounting routers directly in `app.js` rather than through this barrel.
 
 # Notes For Frontend Developers
-- All routes mounted here become API endpoints under the `/api` base prefix (e.g., `/api/users`).
-- This file typically has no API-visible behavior of its own; it only composes sub-routers.
-- To see the full listing of available/undocumented endpoints, reference the Swagger docs at `/api/docs`.
+- The router is mounted under `/api`, so the health endpoint is reached at `GET /api/health`.

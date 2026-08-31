@@ -1,51 +1,38 @@
 # File Name
-`index.ts` (constants barrel)
+`index.js` (placeholder)
 
 # File Path
-`src/shared/constants/index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\shared\constants`
 
 # Purpose
-Provides the public entry point for the shared constants module. It re-exports the dependency-injection token container (`TYPES`) so that the IoC container's symbol identifiers are available from a single, consistent location.
+Placeholder documentation for the `src/shared/constants` directory. Reserved for shared constant definitions. Currently it only hosts `error-codes.js` (see `error-codes.md`); other subfolders/entries would live here.
 
 # Responsibilities
-- Aggregate shared constants into a single import surface.
-- Expose the `TYPES` object holding `Symbol.for(...)` DI bindings.
-- Keep the IoC token definitions discoverable and documented in one place.
-
-# Dependencies
-- `./tokens` — Contains the `TYPES` constant object that defines all dependency injection symbols (`export { TYPES } from './tokens'`).
+- Provide a home for shared constants used across the application.
+- Currently documents the directory itself; see `error-codes.md` for the one real constant file.
 
 # Exports
-Aggregation module re-exporting:
-- `TYPES` — The object (typed `as const`) whose keys are DI container tokens mapping to `Symbol.for(...)` symbols (e.g. `UserRepository`, `CreateUserHandler`, etc.).
+- None directly from this directory barrel (no `constants/index.js` exists yet). Constants are exported by their individual files such as `error-codes.js`.
 
 # Internal Functions
-None. Pure re-export barrel.
+- None.
 
 # Execution Flow
-1. Module load resolves the `./tokens` module.
-2. The `TYPES` object is re-bound and made available to importers.
+- No runtime flow; individual constant modules are imported directly.
 
 # Related Files
-- `src/shared/constants/tokens.ts`
-- `src/shared/index.ts`
+- `src/shared/constants/error-codes.js` — the present constant file (`ERROR_CODES`).
 
 # Example Usage
-```ts
-import { TYPES } from '../../shared/constants';
-// or using the barrel:
-import { TYPES } from '../../shared';
-
-container.bind(TYPES.UserRepository).to(UserRepository);
+```javascript
+const { ERROR_CODES } = require('../shared/constants/error-codes');
 ```
 
 # Best Practices
-- Keep the tokens centralised here so container wiring uses only shared tokens.
-- Prefer importing through the `constants` barrel or shared barrel instead of `tokens.ts` directly.
+- Keep shared constants centralized here and import them explicitly.
 
 # Common Mistakes
-- Importing `tokens.ts` directly by deep path instead of through the barrel.
-- Defining/overriding token strings inline in container files instead of using `TYPES`.
+- Hard-coding magic strings in business logic instead of referencing constants.
 
 # Notes For Frontend Developers
-Server-internal only. `TYPES` symbols are never exposed over HTTP; they are purely for the server-side Inversion-of-Control container wiring and have no effect on API payloads.
+- Error codes such as `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, and `INTERNAL_ERROR` appear in API error responses — clients can match on these.

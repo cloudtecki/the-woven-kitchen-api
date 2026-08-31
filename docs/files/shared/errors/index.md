@@ -1,60 +1,46 @@
 # File Name
-`index.ts` (errors barrel)
+`index.js`
 
 # File Path
-`src/shared/errors/index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\shared\errors\index.js`
 
 # Purpose
-The barrel file for the shared error module. It re-exports the `AppError` base class and every concrete application error class so consumers can import any error from a single location.
+Barrel file for the shared errors module. It re-exports `AppError` and all custom error classes from a single import surface. Plain JavaScript (CommonJS — `module.exports`).
 
 # Responsibilities
-- Aggregate all error classes into one import surface.
-- Provide named re-exports of every error type.
-- Act as the documented listing of every available error class.
-
-# Dependencies
-- `./app-error.base` — exports `AppError`.
-- `./not-found.error` — exports `NotFoundError`.
-- `./validation.error` — exports `ValidationError`.
-- `./unauthorized.error` — exports `UnauthorizedError`.
-- `./forbidden.error` — exports `ForbiddenError`.
-- `./conflict.error` — exports `ConflictError`.
-- `./internal.error` — exports `InternalError`.
+- Aggregate and re-export error classes.
+- Provide a single import path for `AppError`, `NotFoundError`, `ValidationError`, `ConflictError`, `InternalError`.
 
 # Exports
-Named re-exports:
-- `AppError` — abstract base error class.
-- `NotFoundError` — 404 error.
-- `ValidationError` — 400 error with a field-level `errors` map.
-- `UnauthorizedError` — 401 error.
-- `ForbiddenError` — 403 error.
-- `ConflictError` — 409 error.
-- `InternalError` — 500 non-operational error.
+- `AppError`
+- `NotFoundError`
+- `ValidationError`
+- `ConflictError`
+- `InternalError`
 
 # Internal Functions
-None. Pure re-export barrel.
+- None (pure re-export barrel).
 
 # Execution Flow
-1. Module load resolves each of the seven sub-modules.
-2. Each class is re-bound and re-exported by the barrel.
+- Module load imports from `./app-error` and `./custom-errors` and re-exports the named classes.
 
 # Related Files
-- Every file under `src/shared/errors/`.
-- `src/shared/index.ts` (re-exports this barrel).
+- `src/shared/errors/app-error.js`
+- `src/shared/errors/custom-errors.js`
+- `src/api/middlewares/error-handler.js`, `src/api/middlewares/validate.js` — consumers.
 
 # Example Usage
-```ts
-import { NotFoundError, ValidationError, UnauthorizedError, ForbiddenError, ConflictError, InternalError, AppError } from '../../shared/errors';
+```javascript
+const { AppError, NotFoundError, ValidationError } = require('../shared/errors');
 ```
-From the shared barrel: `import { NotFoundError } from '../../shared';`
 
 # Best Practices
-- Import errors from this barrel (or the shared barrel) rather than deep paths.
-- Keep this file a pure aggregation with no logic.
+- Import errors from this barrel rather than deep paths.
+- Keep this file a pure aggregation.
 
 # Common Mistakes
 - Deep-importing individual error files.
-- Adding runtime logic to the barrel.
+- Adding logic to the barrel.
 
 # Notes For Frontend Developers
-The error `code` values (`NOT_FOUND`, `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `CONFLICT`, `INTERNAL_ERROR`) are the stable machine-readable identifiers the server emits in error bodies. Mirror these in the client's API error typing for consistent handling.
+- These error classes drive the HTTP status codes and `code` values seen in API error responses.

@@ -1,6 +1,7 @@
 # Documentation Coverage Validation
 
-This document validates that the onboarding documentation covers **100%** of the codebase.
+This document validates that the onboarding documentation matches the **current** backend codebase
+(plain JavaScript, Story 0.2 setup).
 
 ---
 
@@ -10,13 +11,11 @@ This document validates that the onboarding documentation covers **100%** of the
 
 | Scope | Count |
 | --- | --- |
-| `src/` folders traversed (directories under `src`) | 27 |
-| Documentation files in `docs/folders/` | 7 |
-| Folders covered (all layers: api, application, domain, infrastructure, shared, config + overall `src/`) | 27/27 |
+| Top-level `src/` layers documented in `docs/folders/` | 7 (`src`, `api`, `application`, `config`, `domain`, `infrastructure`, `shared`) |
+| Every layer folder | 7/7 |
 
-Every top-level layer folder (`api`, `application`, `domain`, `infrastructure`, `shared`, `config`)
-has its own `docs/folders/<name>.md`, plus `docs/folders/src.md` covering the overall tree.
-All nested sub-folders are enumerated inside their parent folder doc ("What files belong here").
+Each top-level layer folder has its own `docs/folders/<name>.md`, plus `docs/folders/src.md` covering
+the overall tree. Empty scaffolding sub-folders are enumerated and explained inside their parent docs.
 
 **Folder coverage: 100%**
 
@@ -26,73 +25,63 @@ All nested sub-folders are enumerated inside their parent folder doc ("What file
 
 | Scope | Count |
 | --- | --- |
-| Total source `.ts` files under `src/` | 67 |
-| Documentation files under `docs/files/` | 67 |
-| Files with a 1:1 matching doc (src → docs/files, path for path) | 67/67 |
-| Missing doc files | 0 |
-| Extra doc files (no matching source) | 0 |
+| Total source `.js` files under `src/` | 19 |
+| Real-file docs under `docs/files/` (path-for-path) | 19/19 |
+| Placeholder/scaffold index docs for empty folders | 13 |
+| **Total `docs/files/` markdown files** | **32** |
+| Missing real-file doc | 0 |
 
-The 67-to-67 mapping was **verified programmatically** (normalized path comparison with zero missing
-and zero extras).
+The **19-to-19** mapping of real source files to `docs/files/` was verified path-for-path. The extra 13
+docs are `index.md` placeholders describing empty scaffolding folders reserved for future CQRS/business
+work (e.g. `application/commands`, `domain/entities`, `infrastructure/database/models`).
 
 **File coverage: 100%**
 
 ---
 
-## 3. Functions & Types
+## 3. Functions
 
 | Scope | Count |
 | --- | --- |
-| `## Function:` sections across `docs/files/` | 78 |
-| `## Interface:` / `## Enum:` / `## Type:` sections (additional) | included per file |
-| Static function-definition count that the regex could detect across `src` | 63 (under-count) |
+| `## Function:` sections across `docs/files/` | every exported/inner function |
 
-The documented function sections (78) exceed the loosely-matching static count (63) because the docs
-additionally capture arrow-function exports, controller handlers, DI constants, and the health
-callback that a simple regex misses. More importantly, **every** exported and internal function in
-**every** file received a dedicated `## Function:` section by the documentation generators.
+Every exported and internal function in every real source file receives a dedicated `## Function:`
+section in its file doc.
 
-**Function coverage: 100%** (no function in any file is undocumented)
+**Function coverage: 100%**
 
 ---
 
-## 4. What Was Documented (by requested category)
+## 4. What Was Documented (by category)
 
-Requested item → where it is documented:
-
-| Item | Location |
+| Category | Location |
 | --- | --- |
-| Middleware | `docs/files/shared/middleware/*` |
-| Repository | `docs/files/infrastructure/repositories/*` + `docs/files/domain/repositories/*` |
-| Model / Schema | `docs/files/infrastructure/database/models/*` + `docs/database.md` |
-| DTO / Validator | `docs/files/application/dto/*` |
-| Command | `docs/cqrs/commands/*` + `docs/files/application/commands/*` |
-| Query | `docs/cqrs/queries/*` + `docs/files/application/queries/*` |
-| Handler | `docs/cqrs/handlers/*` + `docs/files/application/handlers/*` |
-| Utility | `docs/files/shared/utils/*` |
-| Config | `docs/files/config/*` + `docs/folders/config.md` |
-| Route | `docs/files/api/routes/*` + `docs/apis/*` |
-| Controller | `docs/files/api/controllers/*` |
-| Service (none — replaced by handlers) | see `docs/folders/application.md` |
-| Enums | `docs/files/domain/value-objects/*` |
-| Constants (DI tokens) | `docs/files/shared/constants/*` |
-| Interfaces / Types | `docs/files/domain/interfaces/*` + `shared/types/*` + `domain/repositories/*` |
+| Express app assembly | `docs/files/app.md`, `docs/folders/api.md`, `docs/00-project-startup-flow.md` |
+| Bootstrap / graceful shutdown | `docs/files/server.md` |
+| Routes | `docs/files/api/routes/*` + `docs/apis/health-check.md` |
+| Middlewares | `docs/files/api/middlewares/*` |
+| Config (Zod env) | `docs/files/config/index.md` + `docs/folders/config.md` |
+| Swagger | `docs/files/config/swagger.md` |
+| Mongo connection | `docs/files/infrastructure/database/mongoose/connection.md` + `docs/database.md` |
 | Errors | `docs/files/shared/errors/*` + `docs/01-request-flow.md` |
+| Utils (logger/response/asyncHandler) | `docs/files/shared/utils/*` |
+| Constants (error codes) | `docs/files/shared/constants/error-codes.md` |
+| CQRS (planned) | `docs/cqrs/*` |
+| Empty scaffolding folders | `docs/files/<layer>/**/index.md` placeholder docs |
 
 ---
 
 ## 5. Documented Folders Breakdown
 
-| Folder | Files in `src` | Docs files | Covered |
+| Folder | Real source `.js` files | Docs | Covered |
 | --- | --- | --- | --- |
-| `src` (root: `app.ts`, `server.ts`) | 2 | `files/app.md`, `files/server.md`, `folders/src.md` | ✅ |
-| `src/api` | 3 | 3 in `files/api/*` + `folders/api.md` + `apis/*` | ✅ |
-| `src/application` | 16 | 16 in `files/application/*` + `folders/application.md` + `cqrs/*` | ✅ |
-| `src/domain` | 10 | 10 in `files/domain/*` + `folders/domain.md` | ✅ |
-| `src/infrastructure` | 12 | 12 in `files/infrastructure/*` + `folders/infrastructure.md` + `database.md` | ✅ |
-| `src/config` | 2 | 2 in `files/config/*` + `folders/config.md` | ✅ |
-| `src/shared` | 22 | 22 in `files/shared/*` + `folders/shared.md` | ✅ |
-| **Total** | **67** | **67** | **100%** |
+| `src/` (root: `app.js`, `server.js`) | 2 | `files/app.md`, `files/server.md`, `folders/src.md` | ✅ |
+| `src/api` | 6 | `files/api/**` + `folders/api.md` + `apis/*` | ✅ |
+| `src/config` | 2 | `files/config/*` + `folders/config.md` | ✅ |
+| `src/infrastructure` | 1 | `files/infrastructure/**` + `folders/infrastructure.md` + `database.md` | ✅ |
+| `src/shared` | 8 | `files/shared/**` + `folders/shared.md` | ✅ |
+| `src/application`, `src/domain` (scaffolding) | 0 | placeholder index docs | ✅ |
+| **Total** | **19** | **19 real-file docs** | **100%** |
 
 ---
 
@@ -103,16 +92,16 @@ Requested item → where it is documented:
 | 1 — Startup flow | `docs/00-project-startup-flow.md` |
 | 2 — Request flow | `docs/01-request-flow.md` |
 | 3 — Folders | `docs/folders/` (7 files) |
-| 4 & 5 — Files + Functions | `docs/files/` (67 files, one per source file) |
-| 6 — CQRS | `docs/cqrs/` (12 files) |
-| 7 — APIs | `docs/apis/` (6 files) |
+| 4 & 5 — Files + Functions | `docs/files/` (32 files: 19 real-file + 13 placeholders) |
+| 6 — CQRS (planned) | `docs/cqrs/` (2 files) |
+| 7 — APIs | `docs/apis/` (1 file) |
 | 8 — Database | `docs/database.md` |
 | 9 — Frontend guide | `docs/frontend-developer-guide.md` |
 | 10 — Architecture | `docs/architecture.md` |
 | 11 — Coverage | this file |
 | Entry point index | `docs/README.md` |
 
-**Documentation index:** [`docs/README.md`](README.md) links all 99 markdown files in reading order.
+**Total markdown documentation files: 49** — `docs/README.md` links them in reading order.
 
 ---
 
@@ -120,19 +109,17 @@ Requested item → where it is documented:
 
 | Metric | Count | Documented | Percentage |
 | --- | --- | --- | --- |
-| Folders | 27 | 27 | **100%** |
-| Source files | 67 | 67 | **100%** |
-| Functions | all | all (78 sections) | **100%** |
-| Interfaces / Types / Enums / Consts | all | all | **100%** |
+| Folders | 7 | 7 | **100%** |
+| Real source files | 19 | 19 | **100%** |
+| Functions | all | all | **100%** |
 
 ## 8. Conclusion
 
-**Documentation coverage: 100%.**
+**Documentation coverage: 100%** for the current plain-JavaScript Story 0.2 codebase.
 
-- No source folder is missing a folder-level doc.
-- Every one of the 67 source `.ts` files has a matching `docs/files/` markdown (verified path-for-path,
-  zero missing, zero extra).
-- Every exported and internal function, interface, type, enum, constant, DTO, validator, command,
-  query, handler, repository, model, schema, middleware, and config has its own documented section.
-- Auxiliary guides (startup, request flow, CQRS, APIs, database, architecture, and the frontend
-  guide) explain *how* all of it fits together.
+- Every one of the 19 source `.js` files has a matching `docs/files/` markdown (path-for-path, zero
+  missing).
+- Empty scaffolding folders (future CQRS/business models) are each documented with placeholder index
+  docs that clearly state nothing is implemented yet.
+- Auxiliary guides (startup, request flow, CQRS, APIs, database, architecture, and the frontend guide)
+  explain how everything fits together and are consistent with the code.

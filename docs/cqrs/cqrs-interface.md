@@ -1,97 +1,100 @@
 # CQRS Domain Contracts
 
-## File Path
+> **Current status (Story 0.2):** No interface file exists. The path `src/domain/interfaces/cqrs.interface.ts` from the old TypeScript codebase was removed during the JavaScript conversion. This document describes the **planned future contract** for CQRS in plain JavaScript.
 
-`src/domain/interfaces/cqrs.interface.ts`
+## Planned contracts
 
-The domain layer defines the two **contracts** that every command, query and handler conforms to. They live at the heart of the CQRS implementation in this project.
+When CQRS is implemented in a future story, every command/query handler will follow two simple contracts. These will live as plain JS modules (CommonJS), not TypeScript, and will not use Inversify or any DI framework.
 
-## The Contracts
+### Command handler contract
 
-```ts
-export interface Command<T = void, TResult = void> {
-  execute(data: T): Promise<TResult>;
-}
+A command handler accepts a command DTO (write operation) and returns a result via `execute()`.
 
-export interface Query<TInput, TOutput> {
-  execute(input: TInput): Promise<TOutput>;
-}
-```
-
-## Members
-
-### `Command<T, TResult>`
-
-| Member    | Type                  | Purpose                                                                    |
-| --------- | --------------------- | -------------------------------------------------------------------------- |
-| `execute` | `(data: T) => Promise<TResult>` | Performs a state-changing operation. Defaults: `T = void`, `TResult = void`. |
-
-`T` is the input payload (the command data) and `TResult` is the value returned after the mutation (often the created/updated entity).
-
-### `Query<TInput, TOutput>`
-
-| Member    | Type                                    | Purpose                                     |
-| --------- | --------------------------------------- | ------------------------------------------- |
-| `execute` | `(input: TInput) => Promise<TOutput>` | Performs a read-only lookup and returns data. |
-
-`TInput` is the query's input payload and `TOutput` is the result type returned to the caller.
-
-## The Purpose of the Contracts
-
-- They **formalize a uniform message-passing shape**: everything in the application layer is dispatched through an `execute(...)` method that takes data and returns a `Promise`.
-- They provide **type safety** across the layers — a handler's `execute` signature is tied to the exact command/query it owns.
-- They make the codebase **predictable and easy to extend**: adding a new business operation means adding a new data class (command/query) plus a new handler that implements the same `execute` contract. No other code needs to change.
-
-## How the Codebase Uses Them
-
-Although the concrete command/query classes and handlers do **not** literally `implements Command<...>` / `Query<...>` (they use container-injected handlers with an `execute(command)` method), they all **follow the same shape** the interfaces describe:
-
-### Data classes (commands & queries)
-
-Declared in `src/application/commands/` and `src/application/queries/`. They are **plain data** with `public readonly` constructor fields — no behavior, no methods beyond a constructor.
-
-```ts
-export class CreateUserCommand {
-  constructor(
-    public readonly email: string,
-    public readonly name: string,
-    public readonly role?: UserRole
-  ) {}
-}
-```
-
-### Handlers
-
-Declared in `src/application/handlers/`. Each handler exposes an `execute(...)` method matching the contract's signature and resolves a repository via the DI container (`@injectable`, `@inject(TYPES.UserRepository)`).
-
-```ts
-@injectable()
-export class CreateUserHandler {
-  constructor(@inject(TYPES.UserRepository) private userRepository: IUserRepository) {}
-
-  async execute(command: CreateUserCommand): Promise<User> {
-    // ...business logic...
+```js
+/**
+ * @template T - input command type
+ * @template TResult - return type
+ */
+class CommandHandler {
+  /**
+   * @param {T} command
+   * @returns {Promise<TResult>}
+   */
+  async execute(command) {
+    throw new Error('Not implemented');
   }
 }
 ```
 
-### Controllers dispatch to handlers
+| Member | Type | Purpose |
+| --- | --- | --- |
+| `execute` | `(command: T) => Promise<TResult>` | Performs a state-changing operation and returns the result. |
 
-Controllers (`src/api/controllers/`) build a command/query **data object** and pass it straight to the matching `handler.execute(...)`:
+### Query handler contract
 
-```ts
-// read path (a Query)
-const user = await getUserByIdHandler().execute(new GetUserByIdQuery(id));
+A query handler accepts a query DTO (read operation) and returns data via `execute()`.
 
-// write path (a Command)
-const user = await createUserHandler().execute(new CreateUserCommand(data.email, data.name, data.role));
+```js
+/**
+ * @template TInput - query input type
+ * @template TOutput - query result type
+ */
+class QueryHandler {
+  /**
+   * @param {TInput} query
+   * @returns {Promise<TOutput>}
+   */
+  async execute(query) {
+    throw new Error('Not implemented');
+  }
+}
 ```
 
-## Key Design Point: Commands/Queries are Plain Data, Handlers Own Logic
+| Member | Type | Purpose |
+| --- | --- | --- |
+| `execute` | `(query: TInput) => Promise<TOutput>` | Performs a read-only lookup and returns data. |
 
-This is the most important rule of this implementation:
+## Design principles
 
-- **Commands and Queries contain ONLY data.** They are serializable, immutable DTOs. They have no methods that perform work, no access to the database, and no behavior.
-- **Handlers own ALL the logic.** Business rules, validation, error handling, and orchestration of repository calls live exclusively in the matching handler.
+- **Commands and Queries are plain data.** They are serializable DTOs with no behavior — no database access, no business rules, just fields.
+- **Handlers own ALL logic.** Business rules, validation, error handling, and repository calls live exclusively in the handler's `execute()` method.
+- **Uniform dispatch shape.** Every operation goes through `handler.execute(dto)`, making the codebase predictable and easy to extend.
+- **No DI framework.** Handlers will receive their dependencies (repositories) via constructor injection — plain JavaScript, no decorators, no container.
 
-This separation keeps the data layer dumb (easy to serialize, send over the network, or log) and centralizes behavior (easy to test, easy to change business rules without touching the HTTP or database layers). If you need to change *how* a user is created, you edit the handler — never the command class.
+## How this will work (future example)
+
+When a concrete operation is added (e.g. creating an order):
+
+1. Define the DTO in `src/application/commands/`:
+   ```js
+   // src/application/commands/create-order.command.js
+   class CreateOrderCommand {
+     constructor({ productId, quantity }) {
+       this.productId = productId;
+       this.quantity = quantity;
+     }
+   }
+   module.exports = { CreateOrderCommand };
+   ```
+
+2. Implement the handler in `src/application/handlers/`:
+   ```js
+   // src/application/handlers/create-order.handler.js
+   class CreateOrderHandler {
+     constructor(orderRepository) {
+       this.orderRepository = orderRepository;
+     }
+
+     async execute(command) {
+       // business logic, validation, persistence
+       return this.orderRepository.create(command);
+     }
+   }
+   module.exports = { CreateOrderHandler };
+   ```
+
+3. The Express route builds the DTO and calls `handler.execute(dto)`.
+
+## Key difference from old TypeScript implementation
+
+The previous codebase used TypeScript interfaces (`Command<T, TResult>`, `Query<TInput, TOutput>`), `@injectable()` decorators, `@inject(TYPES.UserRepository)` for DI via Inversify, and `reflect-metadata`. **None of these exist in the current JavaScript codebase.** The future implementation will be plain CommonJS modules with constructor-based dependency injection — simpler, no build-step required, no decorators.

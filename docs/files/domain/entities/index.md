@@ -1,55 +1,36 @@
 # File Name
-`index.ts`
+`index.js` (placeholder)
 
 # File Path
-`src\domain\entities\index.ts`
+`D:\real-time-project\twk\backend-twk-admin\src\domain\entities`
 
 # Purpose
-Barrel (index) file for the domain **entities** sub-module. It re-exports all public entity types so consumers can import them from a single location (`src/domain/entities`).
+Placeholder documentation for the `src/domain/entities` directory. Empty scaffolding for future domain entities. Currently contains no code (only a `.gitkeep` placeholder).
 
 # Responsibilities
-- Re-export everything from `./base.entity`.
-- Re-export everything from `./user.entity`.
-- Provide a stable, clean import surface for all entity types.
-- Shield consumers from the underlying file layout.
-
-# Dependencies
-| Import | Explanation |
-|--------|-------------|
-| `./base.entity` | Defines and exports the `BaseEntity` interface. |
-| `./user.entity` | Defines and exports the `User` interface (which extends `BaseEntity`). |
+- Reserved for future domain entity classes (e.g. a User entity).
+- Currently empty; nothing to document.
 
 # Exports
-| Export | Kind | Description |
-|--------|------|-------------|
-| `BaseEntity` | Interface | Base contract for all domain entities (id + timestamps). |
-| `User` | Interface | User domain entity extending `BaseEntity`. |
+- None (no source files present).
 
 # Internal Functions
-None. Re-export only; no logic.
+- None.
 
 # Execution Flow
-1. Resolves and loads `./base.entity` and `./user.entity`.
-2. Re-exports all their public symbols.
-3. The aggregated symbols become available through `src/domain/entities`.
+- No runtime flow; awaiting future implementation.
 
 # Related Files
-- `src\domain\entities\base.entity.ts`
-- `src\domain\entities\user.entity.ts`
-- `src\domain\index.ts` — parent barrel re-exporting this module.
+- `src/domain/repositories`, `src/domain/value-objects` — future associated contracts/types.
 
 # Example Usage
-```ts
-import { BaseEntity, User } from '@domain/entities';
-```
+None yet — empty scaffolding.
 
 # Best Practices
-- Only re-export; never add logic to this barrel.
-- Keep the list in sync whenever a new entity file is added.
+- When implemented, keep entities pure (no infrastructure imports) and focused on business rules.
 
 # Common Mistakes
-- Forgetting to add a new entity file to this barrel, making it undiscoverable via the standard import path.
-- Creating circular dependencies by importing from the parent `src/domain` barrel inside entity files (use relative paths instead).
+- Coupling entities to Mongoose models or Express.
 
 # Notes For Frontend Developers
-- Importing entity types via this barrel is equivalent to importing from each file directly — it is purely a compile-time convenience and has no runtime cost.
+- Internal to backend; no current API impact.

@@ -32,27 +32,8 @@ services:
       - PORT=3000
       - MONGODB_URI=mongodb://mongodb:27017
       - DB_NAME=thewovencloudkitchen
-      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
-      - JWT_EXPIRES_IN=7d
-      - API_PREFIX=/api/v1
+      - API_PREFIX=/api
       - LOG_LEVEL=info
-
-  seed:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: twk-admin-seed
-    restart: "no"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-    environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017
-      - DB_NAME=thewovencloudkitchen
-      - SEED_ADMIN_EMAIL=${SEED_ADMIN_EMAIL:-admin@thewovencloudkitchen.com}
-      - SEED_ADMIN_NAME=${SEED_ADMIN_NAME:-System Administrator}
-    command: ["node", "dist/infrastructure/database/seed/index.js"]
 
 volumes:
   mongo_data:

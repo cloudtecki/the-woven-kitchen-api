@@ -1,8 +1,8 @@
-# API: GET /health
+# API: GET /api/health
 
 ## Summary
 
-Liveness + database connectivity check. Returns `200 ok` when MongoDB is connected and `503 error` when it is not. Does not require authentication.
+Simple liveness endpoint. Returns `200 OK` with `{"status":"OK"}`. No database check, no authentication, no business logic. Intended for uptime probes and load-balancer health checks.
 
 ## Method
 
@@ -10,87 +10,92 @@ Liveness + database connectivity check. Returns `200 ok` when MongoDB is connect
 
 ## URL
 
-`/health`
+`/api/health`
+
+The route is defined in `src/api/routes/health.routes.js` on a relative path `/health`. It is mounted in `src/api/routes/index.js` and then in `src/app.js` under `config.apiPrefix` (which defaults to `/api`), yielding the full path `/api/health`.
 
 ## Middleware
 
-None beyond global app middleware (`helmet`, `cors`, `compression`, `express.json`, `requestLogger`). This is a **plain inline Express route** (`src/app.ts:52`) — it does not go through `validate`, the Clean Architecture pipeline, or any auth middleware. Also note the route is registered at the app root (`/health`), **not** under `/api`.
+**Route-level:** None beyond the `asyncHandler` wrapper (from `src/shared/utils/async-handler`), which catches async errors and forwards them to the Express error handler.
+
+**Global app-level:** `helmet`, `cors`, `compression`, `express.json`, `requestLogger` — applied to all routes via `src/app.js`.
+
+No validation middleware, no auth middleware, no rate limiting.
 
 ## Validation
 
-None — the route accepts query parameters, a body, or nothing; nothing is validated.
+None. The route accepts no request body and ignores any query parameters.
 
 ## Controller
 
-N/A — no controller. The response is written inline in `src/app.ts:52`.
+N/A — the response is written inline within the route handler in `src/api/routes/health.routes.js`. No separate controller class is involved.
 
 ## Command/Query
 
-N/A — no command or query object is constructed.
+N/A — no command or query DTO is constructed. This is not a business operation.
 
 ## Handler
 
-N/A — no application-layer handler is involved.
+N/A — no application-layer handler is involved. The route handler is a plain inline async function.
 
 ## Repository
 
-N/A — the repository layer is not used. Connectivity is checked directly via `mongoose.connection.readyState`.
+N/A — no repository is called. No database I/O is performed.
 
 ## Database Operation
 
-Checked: `mongoose.connection.readyState`
-
-- `readyState === 1` → database considered `connected`.
-- Any other state (`0` disconnected, `2` connecting, `3` disconnecting, `99` uninitialized) → considered `disconnected`.
-
-No database I/O is performed by this endpoint.
+None. This endpoint does not touch MongoDB. It returns a fixed response regardless of database state.
 
 ## Request Example
 
 ```http
-GET /health
+GET /api/health HTTP/1.1
+Host: localhost:3000
 ```
 
-No query params or body required.
+No query parameters, no request body.
 
 ## Response Example
 
-HTTP `200 OK` (database connected):
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
 
-```json
 {
-  "status": "ok",
-  "database": "connected",
-  "timestamp": "2026-08-27T09:30:00.000Z"
+  "status": "OK"
 }
 ```
 
-HTTP `503 Service Unavailable` (database not connected):
+## Error Responses
+
+This endpoint does not produce error responses under normal operation. If the async handler catches an unexpected thrown error, it will be forwarded to the global Express error handler, which returns:
 
 ```json
 {
   "status": "error",
-  "database": "disconnected",
-  "timestamp": "2026-08-27T09:30:00.000Z"
+  "message": "<error message>",
+  "code": "INTERNAL_ERROR"
 }
 ```
 
-`timestamp` is the server's current UTC time in ISO 8601.
+with an appropriate HTTP status code.
 
-## Error Responses
+Unmatched routes elsewhere return `404` via the global `notFoundHandler`:
 
-| Status | Condition                          | Body Example                                                    |
-| ------ | ---------------------------------- | --------------------------------------------------------------- |
-| `503`  | `mongoose.connection.readyState !== 1` | `{ "status": "error", "database": "disconnected", "timestamp": "<ISO-8601>" }` |
-
-Note: this endpoint is not JSON-shape compliant with `successResponse` / `errorResponse` helpers or `AppError.toJSON()` — it emits its own fixed shape (`status`, `database`, `timestamp`). The global `notFoundHandler` still applies to unmatched routes elsewhere (`{ "status": "error", "message": "Route not found", "code": "NOT_FOUND" }` at `404`).
+```json
+{
+  "status": "error",
+  "message": "Route not found",
+  "code": "NOT_FOUND"
+}
+```
 
 ## Flow Diagram
 
 ```mermaid
 flowchart TD
-    A[Client: GET /health] --> B[Express app.ts inline route]
-    B --> C{Check mongoose.connection.readyState}
-    C -- readyState === 1 --> D[200\nstatus: ok\ndatabase: connected\ntimestamp: ISO-8601]
-    C -- readyState !== 1 --> E[503\nstatus: error\ndatabase: disconnected\ntimestamp: ISO-8601]
+    A[Client: GET /api/health] --> B[Express global middleware\nhelmet, cors, compression, json, logger]
+    B --> C[health.routes.js\nasyncHandler]
+    C --> D["res.status(200).json({ status: 'OK' })"]
+    D --> E[Client: 200 OK\n{ status: OK }]
 ```

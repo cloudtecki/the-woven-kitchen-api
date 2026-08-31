@@ -5,6 +5,9 @@ This document explains, in detail, exactly what happens on your machine from the
 
 It is written for a **frontend developer** with no backend assumptions. Nothing is skipped.
 
+The backend is **plain JavaScript** (CommonJS) — there is no TypeScript and no build step. `node`
+runs the `src/` files directly.
+
 ---
 
 ## 1. The Entry Command
@@ -16,21 +19,22 @@ npm run dev
 `npm` reads `package.json` → the `scripts` section → the `dev` entry:
 
 ```json
-"dev": "ts-node-dev --respawn --transpile-only src/server.ts"
+"dev": "node --watch src/server.js"
 ```
 
 What this actually runs:
 
 ```
-ts-node-dev --respawn --transpile-only src/server.ts
+node --watch src/server.js
 ```
 
 | Piece | What it means |
 | --- | --- |
-| `ts-node-dev` | A development runner (like `nodemon`) that compiles TypeScript on the fly and restarts on file changes. |
-| `--respawn` | Automatically restart the server whenever any file it depends on changes. |
-| `--transpile-only` | Compile without full type-checking each run (faster). Types are still checked separately by `npm run build` / `tsc`. |
-| `src/server.ts` | **The file that executes first — the entry point.** |
+| `node` | The Node.js runtime executes JavaScript directly (no compiler). |
+| `--watch` | Node's built-in watcher: restarts the process whenever any loaded file changes (hot reload). |
+| `src/server.js` | **The file that executes first — the entry point.** |
+
+`npm start` runs the same file without the watcher (`node src/server.js`) for production-style runs.
 
 ---
 
@@ -38,61 +42,39 @@ ts-node-dev --respawn --transpile-only src/server.ts
 
 ```mermaid
 flowchart TD
-    A[npm run dev] --> B[ts-node-dev]
-    B --> C[src/server.ts - ENTRY POINT]
-    C --> D[import 'reflect-metadata']
-    D --> E[import app from src/app.ts]
-    E --> F[config loads & validates .env]
-    F --> G[DI container built]
-    G --> H[MongoDB connection]
-    H --> I[express app ready]
-    I --> J[middleware registration]
-    J --> K[route registration]
-    J --> L[swagger registration]
-    J --> M[error middleware]
-    H --> N[app.listen - server listening]
-    N --> O[Ready: port 3000]
+    A[npm run dev] --> B[node --watch src/server.js]
+    B --> C[src/server.js - ENTRY POINT]
+    C --> D[import app from ./app.js]
+    D --> E[config loads & validates .env]
+    E --> F[Express app built: middleware, routes, swagger]
+    F --> G[connectDB - MongoDB connection]
+    G --> H[app.listen - server listening]
+    H --> O[Ready: port 3000]
 ```
 
 ---
 
-## 3. Exactly What Each Import Does (server.ts)
+## 3. Exactly What Each Import Does (server.js)
 
-`src/server.ts` is the entry point. Line by line:
+`src/server.js` is the entry point:
 
-```ts
-import 'reflect-metadata';
+```js
+const app = require('./app');
+const { connectDB, disconnectDB } = require('./infrastructure/database/mongoose/connection');
+const { config } = require('./config');
+const { logger } = require('./shared/utils/logger');
 ```
-Loads TypeScript's **reflection metadata** library. Without this, the InversifyJS dependency
-injection decorators (`@injectable`, `@inject`) cannot read type information and DI fails.
 
-```ts
-import { app } from './app';
-```
-Pulls in the fully configured Express application. **Note:** importing `app` triggers `app.ts` to
-run its top-level code (see below), building every middleware, route and swagger setup **before**
-the connection is attempted.
-
-```ts
-import { config } from './config';
-```
-Loads `.env` and exposes strongly-typed config (`PORT`, `MONGODB_URI`, etc.).
-
-```ts
-import { logger } from './shared/utils/logger';
-```
-The Winston logger used for all output.
-
-```ts
-import { MongoConnection } from './infrastructure/database/mongoose/connection';
-```
-The MongoDB connection wrapper (singleton).
+- `./app` — pulls in the fully configured Express application (middleware, routes, Swagger, error handling).
+- `./infrastructure/database/mongoose/connection` — provides `connectDB()` / `disconnectDB()` for MongoDB.
+- `./config` — loads `.env`, validates it with Zod, and exposes a `config` object (`port`, `mongoUri`, etc.).
+- `./shared/utils/logger` — the Winston logger used for all output.
 
 ---
 
 ## 4. Environment Loading (in detail)
 
-When `src/config/index.ts` is first imported:
+When `src/config/index.js` is first imported:
 
 ```mermaid
 flowchart LR
@@ -105,31 +87,29 @@ flowchart LR
 
 1. `dotenv.config()` reads `.env` and populates `process.env`.
 2. A **Zod schema** (`configSchema`) validates the values with types, ranges and defaults.
-3. If validation fails, errors are printed and the process **exits with code 1** so you never run
+3. If validation fails, the issues are printed and the process **exits with code 1** so you never run
    with broken config.
-4. On success, a typed `config` object is exported and used everywhere (never read `process.env`
+4. On success, a plain `config` object is exported and used everywhere (never read `process.env`
    directly elsewhere).
 
 Config keys (from `.env` / `.env.example`):
 
 | env var | config property | default | purpose |
 | --- | --- | --- | --- |
+| `NODE_ENV` | `config.nodeEnv` | `development` | `development` / `production` / `test` |
 | `PORT` | `config.port` | `3000` | HTTP port |
-| `NODE_ENV` | `config.nodeEnv` | `development` | dev/production/test |
 | `MONGODB_URI` | `config.mongoUri` | *(required)* | MongoDB connection string |
 | `DB_NAME` | `config.dbName` | `thewovencloudkitchen` | MongoDB database name |
-| `JWT_SECRET` | `config.jwtSecret` | *(required)* | JWT signing secret |
-| `JWT_EXPIRES_IN` | `config.jwtExpiresIn` | `7d` | JWT lifetime |
-| `API_PREFIX` | `config.apiPrefix` | `/api/v1` | API URL prefix |
+| `API_PREFIX` | `config.apiPrefix` | `/api` | API URL prefix |
 | `LOG_LEVEL` | `config.logLevel` | `info` | winston log level |
 
-Also exported: `isDev` and `isProd` booleans.
+Also exported: `isProd` boolean.
 
 ---
 
-## 5. Express Initialization Flow (app.ts)
+## 5. Express Initialization Flow (app.js)
 
-`src/app.ts` runs immediately when imported. It builds the whole app in this order:
+`src/app.js` runs immediately when imported. It builds the whole app in this order:
 
 ```mermaid
 flowchart TD
@@ -138,12 +118,11 @@ flowchart TD
     C --> D[compression]
     D --> E[express.json limit 10mb]
     E --> F[express.urlencoded]
-    F --> G[requestLogger]
-    G --> H[swagger-ui at /api/docs]
-    H --> I[api router at /api]
-    I --> J[/health route]
-    J --> K[notFoundHandler]
-    K --> L[errorHandler]
+    F --> G[requestLogger - dev only]
+    G --> H[API router at /api - incl /api/health]
+    H --> I[swagger UI at /api-docs]
+    I --> J[notFoundHandler]
+    J --> K[errorHandler]
 ```
 
 Each middleware is registered **in order**, and order matters (see Best Practices in
@@ -154,64 +133,41 @@ Each middleware is registered **in order**, and order matters (see Best Practice
 3. **`compression()`** — gzip responses.
 4. **`express.json({ limit: '10mb' })`** — parse JSON request bodies.
 5. **`express.urlencoded({ extended: true })`** — parse form bodies.
-6. **`requestLogger`** — log every request/response.
-7. **Swagger UI** at `/api/docs` (serves the OpenAPI definition).
-8. **API router** mounted at `/api`.
-9. **`/health`** route — liveness endpoint that reports DB state.
-10. **`notFoundHandler`** — catch-all for unknown routes (404).
-11. **`errorHandler`** — global error middleware (must be last).
+6. **`requestLogger`** (dev only) — log every request/response via Winston.
+7. **API router** mounted at `/api` — currently just `GET /api/health`.
+8. **Swagger UI** at `/api-docs**` (serves the OpenAPI definition).
+9. **`notFoundHandler`** — catch-all for unknown routes (404).
+10. **`errorHandler`** — global error middleware (must be last).
 
 ---
 
-## 6. Dependency Injection Flow
+## 6. MongoDB Connection Flow
 
-The container lives at `src/infrastructure/di/container.ts`. It is built the moment anything imports
-it (controllers import it to resolve handlers).
-
-```mermaid
-flowchart TD
-    A[New Container] --> B[bind IUserRepository -> UserRepository]
-    B --> C[bind CreateUserHandler]
-    C --> D[bind UpdateUserHandler]
-    D --> E[bind DeleteUserHandler]
-    E --> F[bind GetUserByIdHandler]
-    F --> G[bind GetAllUsersHandler]
-    G --> H[handlers auto-receive UserRepository]
-```
-
-- Handlers declare their dependency in their constructor: `@inject(TYPES.UserRepository) repository`.
-- `container.get(TYPES.XHandler)` returns a fully-wired handler with its `UserRepository` injected.
-- Controllers call `container.get(...)` lazily to obtain handlers.
-- This decouples the "what" (interfaces) from the "how" (Mongoose implementation). See
-  [`docs/folders/infrastructure.md`](folders/infrastructure.md) and [`docs/cqrs/`](cqrs/).
-
----
-
-## 7. MongoDB Connection Flow
-
-Performed by `MongoConnection.getInstance().connect()` inside `server.ts` bootstrap:
+Performed by `connectDB()` inside the `server.js` bootstrap:
 
 ```mermaid
 flowchart TD
-    A[server.ts bootstrap] --> B[MongoConnection.getInstance]
+    A[server.js bootstrap] --> B[connectDB]
     B --> C[mongoose.connect MONGODB_URI, dbName]
     C --> D[listen to connection events]
     D --> F[success: log 'MongoDB connected']
     D --> E[error: log + process.exit 1]
 ```
 
-- `autoIndex` is `false` in production, `true` otherwise (determined by `isProd()`).
+- `mongoose.set('strictQuery', true)` is set once.
+- `connectDB()` calls `mongoose.connect(config.mongoUri, { dbName, autoIndex: !isProd })`.
+  - `autoIndex` is **false in production**, **true otherwise** (indexes not rebuilt in prod).
 - Connection events (`connected`, `error`, `disconnected`) are logged for observability.
 - **If the connection fails, the server exits** (does not silently start without a database).
 
 ---
 
-## 8. Server Listening + Graceful Shutdown
+## 7. Server Listening + Graceful Shutdown
 
-After a successful DB connection, `bootstrap()` continues:
+After a successful DB connection, `start()` continues:
 
-```ts
-const server = app.listen(PORT, () => { /* logs */ });
+```js
+server = app.listen(config.port, () => { /* logs */ });
 ```
 
 ```mermaid
@@ -219,40 +175,40 @@ flowchart TD
     A[DB connected] --> B[app.listen PORT 3000]
     B --> C[Listening callback logs]
     C --> D[SIGTERM or SIGINT?]
-    D -->|yes| E[gracefulShutdown]
+    D -->|yes| E[shutdown signal]
     E --> F[server.close]
-    F --> G[MongoConnection.disconnect]
+    F --> G[disconnectDB]
     G --> H[process.exit 0]
     F -->|10s timeout| I[force exit 1]
 ```
 
 - `SIGINT` = Ctrl+C in terminal.
 - `SIGTERM` = termination request (e.g. Docker/Kubernetes).
-- It also handles `unhandledRejection` and `uncaughtException` globally, logging them and exiting.
+- Graceful shutdown: stop accepting new connections, disconnect the DB, then exit cleanly, with a
+  10-second forced-exit timeout as a safety net.
 
 ---
 
-## 9. Final Ordered Startup Flow (complete)
+## 8. Final Ordered Startup Flow (complete)
 
 ```mermaid
 sequenceDiagram
     participant T as Terminal
-    participant Node as Node/ts-node-dev
-    participant App as app.ts
-    participant Config as config.ts
+    participant Node as Node
+    participant App as app.js
+    participant Config as config/index.js
     participant Express as Express
     participant Mongoose
 
     T->>Node: npm run dev
-    Node->>Node: import reflect-metadata
-    Node->>Config: load & validate .env
-    Node->>App: import app
+    Node->>Config: require config -> load & validate .env
+    Node->>App: require app
     App->>Express: create app
     Express->>Express: register middleware (helmet,cors,compression,json,urlencoded,logger)
-    Express->>Express: register swagger at /api/docs
-    Express->>Express: register api router at /api
-    Express->>Express: register /health, notFoundHandler, errorHandler
-    Node->>Mongoose: MongoConnection.connect()
+    Express->>Express: register API router at /api (health)
+    Express->>Express: register swagger at /api-docs
+    Express->>Express: register notFoundHandler, errorHandler
+    Node->>Mongoose: connectDB()
     Mongoose-->>Node: connected
     Node->>Express: app.listen(PORT)
     Express-->>T: Server running on port 3000
@@ -260,18 +216,17 @@ sequenceDiagram
 
 ---
 
-## 10. Startup Files Summary
+## 9. Startup Files Summary
 
 | File | Role at startup |
 | --- | --- |
-| `package.json` | Defines the `dev` script and dependencies |
-| `src/server.ts` | **Entry point** — connects DB, starts listener, handles shutdown |
-| `src/app.ts` | Builds Express app (middleware, routes, swagger, errors) |
-| `src/config/index.ts` | Loads/validates `.env`, exports `config` |
-| `src/infrastructure/di/container.ts` | Builds the DI container |
-| `src/infrastructure/database/mongoose/connection.ts` | MongoDB connection |
-| `src/config/swagger.config.ts` | Builds the OpenAPI spec |
-| `src/api/routes/index.ts` | Registers API routes |
+| `package.json` | Defines the `dev`/`start` scripts and dependencies |
+| `src/server.js` | **Entry point** — connects DB, starts listener, handles shutdown |
+| `src/app.js` | Builds Express app (middleware, routes, swagger, errors) |
+| `src/config/index.js` | Loads/validates `.env`, exports `config` |
+| `src/config/swagger.js` | Builds the OpenAPI spec |
+| `src/api/routes/index.js` | Registers the API router (health) |
+| `src/infrastructure/database/mongoose/connection.js` | MongoDB connection (`connectDB`) |
 
 ---
 
