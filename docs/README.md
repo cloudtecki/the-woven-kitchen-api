@@ -17,6 +17,14 @@ dependency-injection framework.
 4. [Architecture](architecture.md) — layers and dependency rules (Clean Architecture + planned CQRS).
 5. [Database](database.md) — MongoDB / Mongoose connection.
 
+## Sprint Docs (features shipped)
+
+| Sprint | Doc |
+| --- | --- |
+| 0.2 — Initial setup | See Read-These-First above |
+| 1 — Auth, Signup & RBAC | [`sprint-1-Auth-rbac.md`](sprint-1-Auth-rbac.md) — every auth/role feature, its call
+  order (what is called first), request/response examples, and the authorization matrix |
+
 ## Then Go Deep
 
 | Topic | Docs |

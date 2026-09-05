@@ -7,7 +7,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "lint": "eslint src",
+    "seed:admin": "node src/infrastructure/scripts/seed-admin.js",
+    "test": "node --test test/",
+    "lint": "eslint src test",
     "format": "prettier --write \"src/**/*.js\"",
     "docs": "node -e \"const {swaggerSpec}=require('./src/config/swagger');console.log(JSON.stringify(swaggerSpec,null,2))\""
   },
@@ -19,11 +21,13 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "bcryptjs": "^3.0.3",
     "compression": "^1.8.1",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.4",
     "swagger-jsdoc": "^6.3.0",
     "swagger-ui-express": "^5.0.1",

@@ -10,8 +10,8 @@ const createdResponse = (res, data, message) => successResponse(res, data, messa
 
 const noContentResponse = (res) => res.status(204).send();
 
-const errorResponse = (res, message, statusCode = 500, details) => {
-  const body = { success: false, message };
+const errorResponse = (res, message, statusCode = 500, details, code = 'INTERNAL_ERROR') => {
+  const body = { success: false, message, code };
   if (details) body.errors = details;
   res.status(statusCode).json(body);
 };

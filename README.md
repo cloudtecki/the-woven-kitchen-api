@@ -102,12 +102,49 @@ npm start
 
 No build step is required — the backend is plain JavaScript run directly by Node.
 
+### Seed the initial admin account
+
+```bash
+npm run seed:admin
+```
+
+Reads `ADMIN_NAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_PHONE` from the environment.
+`ADMIN_PHONE` is required. The script is idempotent — it skips if an admin with the email already exists.
+
 ## API Documentation
 
 Once the server is running, visit:
 
 - **Swagger UI**: http://localhost:3000/api-docs
 - **Health Check**: http://localhost:3000/api/health
+
+### Endpoints (Sprint 1 — Auth, Signup & Role-Based Access)
+
+| Method | Path | Access |
+| --- | --- | --- |
+| POST | `/api/auth/signup` | Public (always creates `CUSTOMER`) |
+| POST | `/api/auth/login` | Public |
+| PATCH | `/api/auth/change-password` | Authenticated |
+| GET | `/api/users/me` | Authenticated |
+| PATCH | `/api/users/me` | Authenticated (name, phone, bio) |
+| GET | `/api/users` | Admin |
+| GET | `/api/users/:id` | Admin |
+| PATCH | `/api/users/:id` | Admin |
+| DELETE | `/api/users/:id` | Admin |
+| GET | `/api/menu/tomorrow` | Admin + Customer |
+| POST | `/api/menu` | Admin |
+| PATCH | `/api/menu/:id` | Admin |
+| DELETE | `/api/menu/:id` | Admin |
+| POST | `/api/orders` | Admin + Customer |
+| GET | `/api/orders` | Admin (all) / Customer (own) |
+| GET | `/api/orders/:id` | Admin (any) / Customer (own) |
+| PATCH | `/api/orders/:id` | Admin |
+
+### Authentication
+
+- `POST /api/auth/login` returns a JWT (`Authorization: Bearer <token>`).
+- `phone` is **required** for every user (signup, admin management, and profile updates).
+- Menu management and order management handlers are introduced in later sprints; Sprint 1 wires the routes with the full authorization matrix (401/403 enforced).
 
 ## Architecture
 
