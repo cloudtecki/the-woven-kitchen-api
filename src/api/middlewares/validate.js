@@ -22,11 +22,16 @@ const validate = (schemas) => (req, res, next) => {
       });
       return;
     }
-    req[part] = result.data;
+
+    if (part === 'query') {
+      Object.defineProperty(req, 'query', { value: result.data, writable: true, configurable: true });
+    } else {
+      req[part] = result.data;
+    }
   });
 
   if (errors.length > 0) {
-    next(new ValidationError('Validation failed', errors));
+    next(new ValidationError(errors[0].message, errors));
     return;
   }
 
