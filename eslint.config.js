@@ -21,6 +21,8 @@ module.exports = [
         clearInterval: 'readonly',
         __dirname: 'readonly',
         fetch: 'readonly',
+        FormData: 'readonly',
+        Blob: 'readonly',
       },
     },
     rules: {

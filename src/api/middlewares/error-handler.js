@@ -5,6 +5,16 @@ const { logger } = require('../../shared/utils/logger');
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (err, req, res, next) => {
+  if (err && (err.name === 'MulterError' || err.code === 'LIMIT_FILE_SIZE')) {
+    res.status(400).json({
+      success: false,
+      message: err.message || 'File upload failed',
+      code: 'VALIDATION_ERROR',
+      errors: [{ field: 'image', message: err.message || 'File upload failed' }],
+    });
+    return;
+  }
+
   if (err instanceof AppError) {
     if (!err.isOperational) {
       logger.error('Non-operational error', { error: err.message, stack: err.stack, code: err.code });

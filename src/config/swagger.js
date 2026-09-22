@@ -134,6 +134,78 @@ const options = {
             },
           },
         },
+        MenuVariant: {
+          type: 'object',
+          required: ['label', 'price'],
+          properties: {
+            label: { type: 'string' },
+            price: { type: 'number' },
+            offerPrice: { type: 'number' },
+          },
+        },
+        MenuItemRequest: {
+          type: 'object',
+          required: ['name', 'category', 'variants', 'foodType'],
+          properties: {
+            name: { type: 'string', example: 'Chicken Dum Biryani' },
+            category: { type: 'string', example: '64f2a1b2c3d4e5f6a7b8c9d0' },
+            foodType: { type: 'string', enum: ['Veg', 'Non-Veg'], example: 'Non-Veg' },
+            description: { type: 'string' },
+            servingSize: { type: 'string' },
+            ingredients: { type: 'array', items: { type: 'string' } },
+            variants: { type: 'array', items: { $ref: '#/components/schemas/MenuVariant' } },
+            status: { type: 'string', enum: ['Active', 'Inactive'] },
+            isDraft: { type: 'boolean' },
+            foodImageUrl: { type: 'string' },
+            nutrition: { type: 'object' },
+            nutritionStatus: { type: 'string', enum: ['Approved', 'Pending'] },
+          },
+        },
+        Category: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+          },
+        },
+        CategoryListResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: { type: 'array', items: { $ref: '#/components/schemas/Category' } },
+          },
+        },
+        MenuItem: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            name: { type: 'string' },
+            category: {
+              type: 'object',
+              properties: { id: { type: 'string' }, name: { type: 'string' } },
+            },
+            foodType: { type: 'string', enum: ['Veg', 'Non-Veg'] },
+            description: { type: 'string', nullable: true },
+            servingSize: { type: 'string', nullable: true },
+            ingredients: { type: 'array', items: { type: 'string' } },
+            variants: { type: 'array', items: { $ref: '#/components/schemas/MenuVariant' } },
+            status: { type: 'string', enum: ['Active', 'Inactive'] },
+            isDraft: { type: 'boolean' },
+            foodImageUrl: { type: 'string', nullable: true },
+            nutrition: { type: 'object', nullable: true },
+            nutritionStatus: { type: 'string', enum: ['Approved', 'Pending'] },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+          },
+        },
+        MenuItemListResponse: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: { type: 'array', items: { $ref: '#/components/schemas/MenuItem' } },
+            pagination: { $ref: '#/components/schemas/Pagination' },
+          },
+        },
         UserListResponse: {
           type: 'object',
           properties: {
@@ -355,23 +427,71 @@ const options = {
           summary: 'Create menu item (admin only)',
           tags: ['Menu'],
           security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/MenuItemRequest' } },
+            },
+          },
           responses: {
+            201: { description: 'Menu item created' },
+            400: { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
             401: { description: 'Authentication required' },
             403: { description: 'Access denied' },
-            501: { description: 'Not implemented in this sprint' },
+          },
+        },
+        get: {
+          summary: 'List menu items (admin + customer)',
+          tags: ['Menu'],
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'page', schema: { type: 'integer', default: 1 } },
+            { in: 'query', name: 'limit', schema: { type: 'integer', default: 10 } },
+            { in: 'query', name: 'category', schema: { type: 'string' } },
+            { in: 'query', name: 'status', schema: { type: 'string', enum: ['Active', 'Inactive'] } },
+            { in: 'query', name: 'isDraft', schema: { type: 'string', enum: ['true', 'false'] } },
+            { in: 'query', name: 'search', schema: { type: 'string' } },
+          ],
+          responses: {
+            200: {
+              description: 'Paginated menu item list',
+              content: {
+                'application/json': { schema: { $ref: '#/components/schemas/MenuItemListResponse' } },
+              },
+            },
+            401: { description: 'Authentication required' },
           },
         },
       },
       [`${api}/menu/{id}`]: {
+        get: {
+          summary: 'Get a menu item by id (admin + customer)',
+          tags: ['Menu'],
+          security: [{ bearerAuth: [] }],
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Menu item' },
+            401: { description: 'Authentication required' },
+            404: { description: 'Menu item not found' },
+          },
+        },
         patch: {
           summary: 'Update menu item (admin only)',
           tags: ['Menu'],
           security: [{ bearerAuth: [] }],
           parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': { schema: { $ref: '#/components/schemas/MenuItemRequest' } },
+            },
+          },
           responses: {
+            200: { description: 'Menu item updated' },
+            400: { description: 'Validation error' },
             401: { description: 'Authentication required' },
             403: { description: 'Access denied' },
-            501: { description: 'Not implemented in this sprint' },
+            404: { description: 'Menu item not found' },
           },
         },
         delete: {
@@ -380,9 +500,95 @@ const options = {
           security: [{ bearerAuth: [] }],
           parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
           responses: {
+            200: { description: 'Menu item deleted' },
             401: { description: 'Authentication required' },
             403: { description: 'Access denied' },
-            501: { description: 'Not implemented in this sprint' },
+            404: { description: 'Menu item not found' },
+          },
+        },
+      },
+      [`${api}/menu/{id}/image`]: {
+        post: {
+          summary: 'Upload/replace food image (admin only)',
+          tags: ['Menu'],
+          security: [{ bearerAuth: [] }],
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: { description: 'Food image uploaded' },
+            400: { description: 'Validation error' },
+            401: { description: 'Authentication required' },
+            403: { description: 'Access denied' },
+            404: { description: 'Menu item not found' },
+          },
+        },
+      },
+      [`${api}/categories`]: {
+        get: {
+          summary: 'List menu categories (admin + customer)',
+          tags: ['Categories'],
+          security: [{ bearerAuth: [] }],
+          parameters: [
+            { in: 'query', name: 'page', schema: { type: 'integer', default: 1 } },
+            { in: 'query', name: 'limit', schema: { type: 'integer', default: 100 } },
+          ],
+          responses: {
+            200: {
+              description: 'List of categories',
+              content: {
+                'application/json': { schema: { $ref: '#/components/schemas/CategoryListResponse' } },
+              },
+            },
+            401: { description: 'Authentication required' },
+          },
+        },
+        post: {
+          summary: 'Create a menu category (admin only)',
+          tags: ['Categories'],
+          security: [{ bearerAuth: [] }],
+          requestBody: {
+            required: true,
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  required: ['name'],
+                  properties: { name: { type: 'string', example: 'Rice & Biryani' } },
+                },
+              },
+            },
+          },
+          responses: {
+            201: { description: 'Category created' },
+            400: { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/ApiError' } } } },
+            401: { description: 'Authentication required' },
+            403: { description: 'Access denied' },
+            409: { description: 'Category already exists' },
+          },
+        },
+      },
+      [`${api}/categories/{id}`]: {
+        get: {
+          summary: 'Get a category by id (admin + customer)',
+          tags: ['Categories'],
+          security: [{ bearerAuth: [] }],
+          parameters: [{ in: 'path', name: 'id', required: true, schema: { type: 'string' } }],
+          responses: {
+            200: {
+              description: 'Category',
+              content: {
+                'application/json': {
+                  schema: {
+                    type: 'object',
+                    properties: {
+                      success: { type: 'boolean', example: true },
+                      data: { $ref: '#/components/schemas/Category' },
+                    },
+                  },
+                },
+              },
+            },
+            401: { description: 'Authentication required' },
+            404: { description: 'Category not found' },
           },
         },
       },

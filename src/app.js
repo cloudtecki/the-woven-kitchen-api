@@ -1,6 +1,7 @@
 'use strict';
 
 const express = require('express');
+const path = require('node:path');
 const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
@@ -26,6 +27,8 @@ if (!isProd) {
 }
 
 app.use(config.apiPrefix, apiRoutes);
+
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
