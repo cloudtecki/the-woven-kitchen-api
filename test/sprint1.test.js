@@ -541,11 +541,13 @@ test('menu: customer cannot create/update/delete menu -> 403', async () => {
   assert.equal((await api('DELETE', `/api/menu/${id}`, { token: customerToken })).status, 403);
 });
 
-test('menu: admin routes wired (handlers available in later sprint)', async () => {
+test('menu: admin routes wired (menu item CRUD)', async () => {
   const id = 'aaaaaaaaaaaaaaaaaaaaaaaa';
-  assert.equal((await api('POST', '/api/menu', { token: adminToken, body: {} })).status, 501);
-  assert.equal((await api('PATCH', `/api/menu/${id}`, { token: adminToken, body: {} })).status, 501);
-  assert.equal((await api('DELETE', `/api/menu/${id}`, { token: adminToken })).status, 501);
+  // Empty body fails Zod validation (name/category/variants required)
+  assert.equal((await api('POST', '/api/menu', { token: adminToken, body: {} })).status, 400);
+  // Unknown ObjectId passes params validation but misses the document
+  assert.equal((await api('PATCH', `/api/menu/${id}`, { token: adminToken, body: { name: 'x' } })).status, 404);
+  assert.equal((await api('DELETE', `/api/menu/${id}`, { token: adminToken })).status, 404);
 });
 
 // ---------------------------------------------------------------------------

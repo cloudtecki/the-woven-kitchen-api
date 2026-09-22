@@ -10,6 +10,7 @@ prompt
 *.log
 logs
 coverage
+uploads
 .dockerignore
 Dockerfile
 docker-compose.yml
